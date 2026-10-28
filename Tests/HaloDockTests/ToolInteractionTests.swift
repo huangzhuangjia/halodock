@@ -60,7 +60,7 @@ import Testing
     #expect(result == nil && !recorder.recording)
 }
 
-@Test @MainActor func menuBarPanelHasAUsableIntrinsicHeight() throws {
+@Test @MainActor func menuBarPopoverKeepsUsableHeightAfterOpeningAndReopening() async throws {
     _ = NSApplication.shared
     let name = "HaloDock.PanelSize.\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: name))
@@ -68,10 +68,62 @@ import Testing
     defer { defaults.removePersistentDomain(forName: name); board.releaseGlobally() }
     let system = SystemState(pasteboard: board, defaults: defaults)
     defer { system.shutdown() }
-    let host = NSHostingView(rootView: HaloDockView(openSettings: {}, system: system, emptyTrash: {}, takeScreenshot: {}))
-    let size = host.fittingSize
-    #expect(size.width == 390)
-    #expect(size.height >= 400 && size.height <= (NSScreen.main?.visibleFrame.height ?? 1000))
+    let anchor = NSWindow(contentRect: CGRect(x: 100, y: 100, width: 80, height: 60), styleMask: [.titled], backing: .buffered, defer: false)
+    anchor.isReleasedWhenClosed = false
+    let button = NSButton(title: "Panel", target: nil, action: nil)
+    anchor.contentView = button
+    anchor.orderFront(nil)
+    defer { anchor.close() }
+    let controller = NSHostingController(rootView: HaloDockView(openSettings: {}, system: system, emptyTrash: {}, takeScreenshot: {}).defaultAppStorage(defaults))
+    controller.sizingOptions = [.preferredContentSize]
+    let popover = NSPopover()
+    popover.animates = false
+    popover.behavior = .applicationDefined
+    popover.contentViewController = controller
+    defer { popover.close() }
+    for cycle in 0..<2 {
+        controller.view.layoutSubtreeIfNeeded()
+        popover.contentSize = controller.view.fittingSize
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(popover.isShown)
+        #expect(popover.contentSize.width == 390)
+        #expect(popover.contentSize.height >= min(600, (button.window?.screen?.visibleFrame.height ?? 800) - 100))
+        #expect(popover.contentSize.height <= (button.window?.screen?.visibleFrame.height ?? 1000))
+        if let directory = ProcessInfo.processInfo.environment["HALODOCK_RENDER_PREVIEWS"] {
+            let target = URL(fileURLWithPath: directory)
+            try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+            let view = controller.view
+            let rep = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+            view.cacheDisplay(in: view.bounds, to: rep)
+            try #require(rep.representation(using: .png, properties: [:])).write(to: target.appendingPathComponent("real-popover-\(cycle).png"))
+        }
+        popover.close()
+    }
+}
+
+@Test @MainActor func settingsCategoriesSwitchWithinOneWindowAndUpdateSelectsItsPage() async throws {
+    _ = NSApplication.shared
+    let host = NSHostingView(rootView: HaloDockSettingsView(initialPage: .clipboard))
+    let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 800, height: 620), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    window.contentView = host
+    window.orderFront(nil)
+    defer { window.close() }
+    try await Task.sleep(for: .milliseconds(150))
+    func renderedPixels() throws -> Data {
+        host.layoutSubtreeIfNeeded()
+        let rep = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: rep)
+        return try #require(rep.representation(using: .png, properties: [:]))
+    }
+    let clipboard = try renderedPixels()
+    NotificationCenter.default.post(name: .haloDockShowUpdates, object: nil)
+    try await Task.sleep(for: .milliseconds(150))
+    let update = try renderedPixels()
+    #expect(clipboard != update)
+    #expect(host.window === window)
+    #expect(host.bounds.width == 800 && host.bounds.height == 620)
 }
 
 @MainActor private func buttons(in view: NSView) -> [NSButton] {

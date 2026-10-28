@@ -17,32 +17,47 @@ struct HaloDockView: View {
     @AppStorage("showStorage") private var showStorage = true
     @AppStorage("showRecentClipboard") private var showRecentClipboard = true
 
+    @State private var contentHeight: CGFloat = 620
+    @State private var chromeHeight: CGFloat = 150
+    private var scrollLimit: CGFloat {
+        let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
+        return max(0, min(620, (screen?.visibleFrame.height ?? 800) - chromeHeight - 64))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            header
-            if updates.availableRelease != nil || updates.hasPreparedUpdate {
-                Button(action: openSettings) {
-                    Label(updates.hasPreparedUpdate ? "更新已准备好，点击重启更新" : "发现 \(updates.availableRelease?.tag_name ?? "新版本")，前往更新", systemImage: "arrow.down.circle")
-                        .font(.callout.weight(.medium))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(10)
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                if updates.availableRelease != nil || updates.hasPreparedUpdate {
+                    Button {
+                        openSettings()
+                        NotificationCenter.default.post(name: .haloDockShowUpdates, object: nil)
+                    } label: {
+                        Label(updates.hasPreparedUpdate ? "更新已准备好，点击重启更新" : "发现 \(updates.availableRelease?.tag_name ?? "新版本")，前往更新", systemImage: "arrow.down.circle")
+                            .font(.callout.weight(.medium))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(10)
+                    }
+                    .buttonStyle(.bordered)
+                    .padding(.top, 14)
                 }
-                .buttonStyle(.bordered)
-                .padding(.top, 14)
-            }
-            if updates.isDownloading {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text(updates.message).lineLimit(2)
-                        Spacer()
-                        Text("\(Int(updates.progress * 100))%")
-                    }.font(.caption)
-                    ProgressView(value: updates.progress)
+                if updates.isDownloading {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(updates.message).lineLimit(2)
+                            Spacer()
+                            Text("\(Int(updates.progress * 100))%")
+                        }.font(.caption)
+                        ProgressView(value: updates.progress)
+                    }
+                    .padding(12)
+                    .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+                    .padding(.top, 10)
                 }
-                .padding(12)
-                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
-                .padding(.top, 10)
             }
+            .background(GeometryReader { geometry in
+                Color.clear.preference(key: PanelChromeHeight.self, value: geometry.size.height)
+            })
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     if showMacStatus { statusSummary }
@@ -51,13 +66,23 @@ struct HaloDockView: View {
                         Divider()
                         ClipboardHistoryView(history: system.history)
                     }
-                }.padding(.top, showMacStatus ? 0 : 16)
+                }
+                .padding(.top, showMacStatus ? 0 : 16)
+                .background(GeometryReader { geometry in
+                    Color.clear.preference(key: PanelContentHeight.self, value: geometry.size.height)
+                })
             }
-            .frame(maxHeight: max(180, min(620, (NSScreen.main?.visibleFrame.height ?? 800) - 220)))
+            .frame(height: min(contentHeight, scrollLimit))
             footer
+                .background(GeometryReader { geometry in
+                    Color.clear.preference(key: PanelChromeHeight.self, value: geometry.size.height)
+                })
         }
         .padding(20)
         .frame(width: 390)
+        .fixedSize(horizontal: false, vertical: true)
+        .onPreferenceChange(PanelContentHeight.self) { contentHeight = $0 }
+        .onPreferenceChange(PanelChromeHeight.self) { chromeHeight = $0 }
         .background(Color(nsColor: .windowBackgroundColor))
         .modifier(HaloDockTheme())
         .onAppear { system.refresh() }
@@ -301,4 +326,14 @@ private struct StatusMetric: View {
         .padding(9)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.72), in: RoundedRectangle(cornerRadius: 9))
     }
+}
+
+private struct PanelContentHeight: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+private struct PanelChromeHeight: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value += nextValue() }
 }

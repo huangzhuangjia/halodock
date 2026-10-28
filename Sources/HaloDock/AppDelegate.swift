@@ -17,7 +17,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let application = NSApplication.shared
         application.setActivationPolicy(.accessory)
         LoginItemState.shared.configureOnLaunch()
-        UpdateManager.shared.revealProgress = { [weak self] in self?.showSettings() }
+        UpdateManager.shared.revealProgress = { [weak self] in
+            self?.showSettings()
+            NotificationCenter.default.post(name: .haloDockShowUpdates, object: nil)
+        }
         UpdateManager.shared.canRestart = { [weak self] in
             self?.screenshots.hasActiveSession != true && self?.closedLid.active != true && self?.closedLid.isChanging != true
         }
@@ -38,13 +41,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         popover.behavior = .transient
         popover.animates = true
-        popover.contentViewController = NSHostingController(rootView: HaloDockView(openSettings: { [weak self] in
+        let panelController = NSHostingController(rootView: HaloDockView(openSettings: { [weak self] in
             self?.showSettings()
         }, system: system, emptyTrash: { [weak self] in
             self?.confirmEmptyTrash()
         }, takeScreenshot: { [weak self] in
             self?.takeScreenshot()
         }))
+        panelController.sizingOptions = [.preferredContentSize]
+        popover.contentViewController = panelController
         GlobalShortcuts.shared.onAction = { [weak self] action in
             guard let self else { return }
             // Do not steal keys or focus from an active capture editor.
@@ -183,6 +188,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if popover.isShown {
             popover.performClose(sender)
         } else {
+            if let view = popover.contentViewController?.view {
+                view.layoutSubtreeIfNeeded()
+                popover.contentSize = view.fittingSize
+            }
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             NSApp.activate(ignoringOtherApps: true)
         }

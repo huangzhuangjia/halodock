@@ -31,11 +31,11 @@
   </tr>
   <tr>
     <td align="center"><img src="docs/images/panel.png" width="390" alt="HaloDock 中文面板：系统状态、保持唤醒、截图、废纸篓和最近复制" /></td>
-    <td align="center"><img src="docs/images/settings.png" width="460" alt="HaloDock 设置：开机启动、主题、强调色及面板显示选项" /></td>
+    <td align="center"><img src="docs/images/settings.png" width="560" alt="HaloDock 设置：左侧分类导航，右侧展示对应选项" /></td>
   </tr>
 </table>
 
-界面图由 App 视图渲染，状态数值来自本机；剪贴板演示使用专用测试内容，不包含私人内容。设置页面可向下滚动查看全部选项。
+界面图由 App 视图渲染，状态数值来自本机；剪贴板演示使用专用测试内容，不包含私人内容。设置采用左侧分类导航、右侧内容切换；各分类可独立滚动。
 
 ## 截图：选好范围，原地编辑
 
@@ -67,7 +67,7 @@
 | 开机启动 | 默认开启，安装到“应用程序”后首次启动注册系统登录项 |
 | 外观设置 | 跟随系统、浅色、深色；提供珊瑚橙、蓝色、绿色强调色 |
 
-<img src="docs/images/tools-settings.png" width="460" alt="全局快捷键、唤醒倒计时、剪贴板清理设置，向下可调整面板显示及顺序" />
+<img src="docs/images/tools-settings.png" width="800" alt="面板布局分类：模块显示开关与快捷操作排序" />
 
 “歪头屏”是 HaloDock 的品牌形象，菜单栏、面板和设置页使用同一份矢量图形。
 
