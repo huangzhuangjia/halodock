@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct HaloDockSettingsView: View {
+    @ObservedObject private var closedLid = ClosedLidState.shared
+    @AppStorage("closedLidMinutes") private var closedLidMinutes = 60
     @ObservedObject private var updates = UpdateManager.shared
     @AppStorage("automaticallyCheckUpdates") private var automaticallyCheckUpdates = true
     @ObservedObject private var login = LoginItemState.shared
@@ -76,6 +78,34 @@ struct HaloDockSettingsView: View {
                 Text("保持唤醒会记住上次选择，并在下次启动时恢复。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+            Section("合盖保持运行") {
+                Toggle("本次合盖会话", isOn: Binding(get: { closedLid.active }, set: { enabled in
+                    Task { if enabled { await closedLid.enable(minutes: closedLidMinutes) } else { await closedLid.stop() } }
+                }))
+                .disabled(closedLid.isChanging)
+                Picker("开启时长", selection: $closedLidMinutes) {
+                    Text("30 分钟").tag(30)
+                    Text("1 小时").tag(60)
+                    Text("2 小时").tag(120)
+                    Text("直到手动关闭").tag(0)
+                }.disabled(closedLid.active || closedLid.isChanging)
+                Text(closedLid.message)
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text("合盖模式会阻止系统睡眠；会话到期、退出 App、电池低于 20% 或温度过高时恢复原设置。请保持通风，不与其他合盖工具同时使用。")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Button(closedLid.authorizationInstalled ? "重新配置授权" : "配置合盖授权") { closedLid.authorize() }
+                        .disabled(closedLid.active || closedLid.isChanging)
+                    if closedLid.authorizationInstalled {
+                        Button("撤销合盖授权") { Task { await closedLid.removeAuthorization() } }
+                            .disabled(closedLid.isChanging)
+                    }
+                }
+                if closedLid.needsRestore {
+                    Button("授权恢复睡眠") { closedLid.restoreWithAuthorization() }
+                        .buttonStyle(.borderedProminent)
+                }
             }
             Section("外观") {
                 Picker("主题", selection: $appearance) {

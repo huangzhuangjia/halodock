@@ -13,6 +13,8 @@ cp "$ROOT_DIR/.build/release/HaloDock" "$APP_DIR/Contents/MacOS/HaloDock"
 cp "$ROOT_DIR/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp "$ROOT_DIR/.build/release/HaloDockUpdater" "$APP_DIR/Contents/Helpers/HaloDockUpdater"
 codesign --force --sign - "$APP_DIR/Contents/Helpers/HaloDockUpdater"
+cp "$ROOT_DIR/.build/release/HaloDockPowerGuard" "$APP_DIR/Contents/Helpers/HaloDockPowerGuard"
+codesign --force --sign - "$APP_DIR/Contents/Helpers/HaloDockPowerGuard"
 
 swiftc -parse-as-library Sources/HaloDock/BrandIcon.swift Scripts/GenerateAppIcon.swift -o .build/generate-app-icon
 .build/generate-app-icon .build/HaloDock.iconset

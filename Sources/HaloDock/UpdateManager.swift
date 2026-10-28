@@ -16,6 +16,8 @@ final class UpdateManager: ObservableObject {
     private(set) var shouldShowUpdateResult = false
     var canRestart: (() -> Bool)?
     var revealProgress: (() -> Void)?
+    var restartBlockMessage: (() -> String)?
+    private var blockedReason: String { restartBlockMessage?() ?? "请先完成或取消当前截图，再重启更新。" }
     private var prepared: PreparedAppUpdate?
     private var installerProcess: Process?
     @Published private(set) var availableRelease: GitHubRelease?
@@ -160,7 +162,7 @@ final class UpdateManager: ObservableObject {
             defaults.set(next.manifest.path,forKey:"preparedUpdateManifest")
             progress=0.97
             if canRestart?()==false {
-                message="更新已准备好。请先完成当前截图，再点击“重启更新”。"
+                message="更新已准备好。"+blockedReason
             } else { await restartPreparedUpdate() }
         } catch {
             message=error.localizedDescription
@@ -171,7 +173,7 @@ final class UpdateManager: ObservableObject {
     func restartPreparedUpdate() async {
         guard let prepared else {return}
         guard canRestart?() != false else {
-            message="请先完成或取消当前截图，再重启更新。";return
+            message=blockedReason;return
         }
         isDownloading=true
         message="准备重新启动以应用更新…";progress=0.99
@@ -199,7 +201,7 @@ final class UpdateManager: ObservableObject {
                 await Task.detached {process.waitUntilExit()}.value
                 installerProcess=nil
                 isDownloading=false
-                message="更新已准备好。请先完成当前截图，再点击“重启更新”。"
+                message="更新已准备好。"+blockedReason
                 return
             }
             defaults.set(prepared.plan.version,forKey:"pendingUpdateVersion")

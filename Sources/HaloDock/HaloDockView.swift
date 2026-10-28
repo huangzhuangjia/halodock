@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct HaloDockView: View {
+    @ObservedObject private var closedLid = ClosedLidState.shared
+    @AppStorage("closedLidMinutes") private var closedLidMinutes = 60
     @ObservedObject private var updates = UpdateManager.shared
     let openSettings: () -> Void
     @ObservedObject var system: SystemState
@@ -119,16 +121,39 @@ struct HaloDockView: View {
 
             ActionRow(
                 title: "保持唤醒",
-                detail: "让屏幕保持点亮",
+                detail: closedLid.active ? "合盖后继续运行" : "让屏幕保持点亮",
                 symbol: "sun.max",
                 tint: .haloOrange,
                 trailing: AnyView(
-                    Toggle("", isOn: Binding(get: { system.keepAwake }, set: { system.setKeepAwake($0) }))
+                    Toggle("保持唤醒", isOn: Binding(get: { system.keepAwake || closedLid.active }, set: { enabled in
+                        if enabled { system.setKeepAwake(true) }
+                        else { Task { if await closedLid.stop() { system.setKeepAwake(false) } } }
+                    }))
                         .labelsHidden()
                         .toggleStyle(.switch)
                         .controlSize(.small)
                 )
             )
+
+            ActionRow(
+                title: "合盖保持运行",
+                detail: closedLid.active ? (closedLid.endsAt.map { "运行至 " + $0.formatted(date: .omitted, time: .shortened) } ?? "直到关闭或退出") : "首次授权 · 本次会话使用",
+                symbol: "laptopcomputer",
+                tint: .haloOrange,
+                trailing: AnyView(
+                    HStack {
+                        if closedLid.isChanging { ProgressView().controlSize(.small) }
+                        Toggle("合盖保持运行", isOn: Binding(get: { closedLid.active }, set: { enabled in
+                            Task { if enabled { await closedLid.enable(minutes: closedLidMinutes) } else { await closedLid.stop() } }
+                        }))
+                        .labelsHidden().toggleStyle(.switch).controlSize(.small).disabled(closedLid.isChanging)
+                    }
+                )
+            )
+            if closedLid.needsRestore {
+                Button("授权恢复睡眠") { closedLid.restoreWithAuthorization() }
+                    .buttonStyle(.borderedProminent).controlSize(.small)
+            }
 
             ActionRow(
                 title: "截取屏幕",

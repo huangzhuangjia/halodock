@@ -8,16 +8,19 @@ let package = Package(
     ],
     products: [
         .executable(name: "HaloDock", targets: ["HaloDock"]),
-        .executable(name: "HaloDockUpdater", targets: ["HaloDockUpdater"])
+        .executable(name: "HaloDockUpdater", targets: ["HaloDockUpdater"]),
+        .executable(name: "HaloDockPowerGuard", targets: ["HaloDockPowerGuard"])
     ],
     targets: [
         .executableTarget(
             name: "HaloDock",
-            dependencies: ["UpdateInstallation"],
+            dependencies: ["UpdateInstallation", "ClosedLidSupport"],
             path: "Sources/HaloDock"
         ),
         .target(name: "UpdateInstallation"),
+        .target(name: "ClosedLidSupport"),
+        .executableTarget(name: "HaloDockPowerGuard", dependencies: ["ClosedLidSupport"]),
         .executableTarget(name: "HaloDockUpdater", dependencies: ["UpdateInstallation"]),
-        .testTarget(name: "HaloDockTests", dependencies: ["HaloDock", "UpdateInstallation"])
+        .testTarget(name: "HaloDockTests", dependencies: ["HaloDock", "UpdateInstallation", "ClosedLidSupport"])
     ]
 )

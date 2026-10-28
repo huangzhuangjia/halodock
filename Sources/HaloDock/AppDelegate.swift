@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let popover = NSPopover()
     private let system = SystemState()
     private let screenshots = ScreenshotCoordinator()
+    private let closedLid = ClosedLidState.shared
     private var settingsWindow: NSWindow?
     private var wakeObservation: AnyCancellable?
 
@@ -16,12 +17,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         application.setActivationPolicy(.accessory)
         LoginItemState.shared.configureOnLaunch()
         UpdateManager.shared.revealProgress = { [weak self] in self?.showSettings() }
-        UpdateManager.shared.canRestart = { [weak self] in self?.screenshots.hasActiveSession != true }
+        UpdateManager.shared.canRestart = { [weak self] in
+            self?.screenshots.hasActiveSession != true && self?.closedLid.active != true && self?.closedLid.isChanging != true
+        }
+        UpdateManager.shared.restartBlockMessage = { [weak self] in
+            if self?.closedLid.active == true || self?.closedLid.isChanging == true { return "请先关闭合盖模式，恢复睡眠后再重启更新。" }
+            return "请先完成或取消当前截图，再重启更新。"
+        }
         UpdateManager.shared.startAutomaticChecks()
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         updateStatusIcon()
-        wakeObservation = system.$keepAwake.removeDuplicates().sink { [weak self] enabled in
+        wakeObservation = Publishers.CombineLatest(system.$keepAwake, closedLid.$active).map { $0 || $1 }.removeDuplicates().sink { [weak self] enabled in
             Task { @MainActor [weak self] in self?.updateStatusIcon(keepAwake: enabled) }
         }
         statusItem.button?.imagePosition = .imageOnly
@@ -40,14 +47,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.screenshots.start()
             }
         }))
+        closedLid.configure()
         if UpdateManager.shared.shouldShowUpdateResult { showSettings() }
     }
 
     private func updateStatusIcon(keepAwake: Bool? = nil) {
-        let enabled = keepAwake ?? system.keepAwake
+        let enabled = keepAwake ?? (system.keepAwake || closedLid.active)
         let coral = NSColor(calibratedRed: 0.95, green: 0.33, blue: 0.20, alpha: 1)
         statusItem.button?.image = HaloDockBrand.image(color: enabled ? coral : nil)
-        statusItem.button?.toolTip = enabled ? "HaloDock · 保持唤醒已开启" : "HaloDock · 保持唤醒已关闭"
+        statusItem.button?.toolTip = closedLid.active ? "HaloDock · 合盖保持运行中" : enabled ? "HaloDock · 保持唤醒已开启" : "HaloDock · 保持唤醒已关闭"
         statusItem.button?.setAccessibilityLabel(enabled ? "HaloDock，保持唤醒已开启" : "HaloDock，保持唤醒已关闭")
     }
 
@@ -65,6 +73,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWindow?.deminiaturize(nil)
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if closedLid.isChanging {
+            let alert = NSAlert()
+            alert.messageText = "正在配置合盖模式"
+            alert.informativeText = "请完成或取消当前授权，再退出 HaloDock。"
+            alert.addButton(withTitle: "好")
+            alert.runModal()
+            return .terminateCancel
+        }
+        guard closedLid.active else { return .terminateNow }
+        Task { @MainActor in
+            var restored = await closedLid.stop()
+            if !restored {
+                let alert = NSAlert()
+                alert.messageText = "退出前需要恢复睡眠"
+                alert.informativeText = "合盖模式的睡眠设置尚未恢复。请授权恢复后再退出。"
+                alert.addButton(withTitle: "授权恢复并退出")
+                alert.addButton(withTitle: "取消退出")
+                if alert.runModal() == .alertFirstButtonReturn { restored = closedLid.restoreWithAuthorization() }
+            }
+            sender.reply(toApplicationShouldTerminate: restored)
+        }
+        return .terminateLater
     }
 
     func applicationWillTerminate(_ notification: Notification) {
