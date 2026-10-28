@@ -234,7 +234,15 @@ private struct DockWindowPreviewPanel: View {
     @ObservedObject var preview: DockWindowPreview
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack { Text(preview.appName).font(.headline); Spacer(); Button("打开应用") { preview.activateApp() }.controlSize(.small) }
+            HStack(spacing: 8) {
+                BrandIcon(size: 16)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(preview.appName).font(.headline).lineLimit(1)
+                    Text("HaloDock 窗口预览").font(.system(size: 9)).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Button("打开") { preview.activateApp() }.controlSize(.small).help("打开应用")
+            }
             if preview.thumbnails.isEmpty {
                 VStack(spacing: 8) {
                     if preview.loading { ProgressView().controlSize(.small) }

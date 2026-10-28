@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Testing
 @testable import HaloDock
 
@@ -63,5 +64,34 @@ private final class ReleaseProtocol: URLProtocol, @unchecked Sendable {
 private extension Data {
     func replacingOccurrences(of old: String, with new: String) -> Data {
         Data(String(decoding: self, as: UTF8.self).replacingOccurrences(of: old, with: new).utf8)
+    }
+}
+
+@Test @MainActor func longReleaseNotesStayInScrollAreaAndButtonsStayInsideWindow() throws {
+    _ = NSApplication.shared
+    let name = "HaloDock.UpdatePromptTests.\(UUID())"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let manager = UpdateManager(currentVersion: "0.3.1", defaults: defaults)
+    var json = try #require(JSONSerialization.jsonObject(with: ReleaseProtocol.data) as? [String: Any])
+    json["body"] = String(repeating: "## 更新说明\n- 很长的中文内容，包含多行详情。\n", count: 500)
+    let release = try JSONDecoder().decode(GitHubRelease.self, from: JSONSerialization.data(withJSONObject: json))
+    for height: CGFloat in [480, 700, 1000] {
+        let alert = manager.makeUpdateAlert(release, availableHeight: height)
+        alert.layout()
+        let scroll = try #require(alert.accessoryView as? NSScrollView)
+        let text = try #require(scroll.documentView as? NSTextView)
+        #expect(scroll.frame.height <= 220 && scroll.hasVerticalScroller)
+        #expect(text.frame.height > scroll.contentSize.height)
+        #expect(alert.window.frame.height <= height)
+        let content = try #require(alert.window.contentView)
+        for button in alert.buttons {
+            let rect = content.convert(button.bounds, from: button)
+            #expect(content.bounds.contains(rect))
+        }
+        #expect(alert.buttons.first?.title == "立即更新")
+        #expect(alert.buttons.first?.keyEquivalent == "\r")
+        #expect(alert.buttons.last?.title == "稍后")
+        #expect(alert.buttons.last?.keyEquivalent == "\u{1b}")
     }
 }

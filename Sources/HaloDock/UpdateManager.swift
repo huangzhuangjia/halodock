@@ -101,15 +101,47 @@ final class UpdateManager: ObservableObject {
         return data
     }
 
-    private func presentUpdate(_ release: GitHubRelease) {
-        NSApp.activate(ignoringOtherApps: true)
+    func makeUpdateAlert(_ release: GitHubRelease, availableHeight: CGFloat? = nil) -> NSAlert {
         let alert = NSAlert()
-        alert.messageText = "HaloDock \(release.tag_name) 可用"
-        alert.informativeText = "当前版本：\(currentVersion)\n\n\(String((release.body ?? "前往发布页面查看更新说明。").prefix(1400)))"
+        alert.messageText = "HaloDock \(release.tag_name.prefix(48)) 可用"
+        alert.informativeText = "当前版本：\(currentVersion)\n更新说明可在下方滚动查看。"
+        let screenHeight = availableHeight ?? NSScreen.main?.visibleFrame.height ?? 700
+        let scroll = NSScrollView(frame: CGRect(x: 0, y: 0, width: 400, height: max(72, min(220, screenHeight - 350))))
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = false
+        scroll.borderType = .bezelBorder
+        scroll.drawsBackground = false
+        scroll.setAccessibilityLabel("更新说明，可滚动阅读")
+        let text = NSTextView(frame: CGRect(origin: .zero, size: scroll.contentSize))
+        text.isEditable = false; text.isSelectable = true; text.isRichText = false
+        text.drawsBackground = false; text.textColor = .labelColor
+        text.font = .systemFont(ofSize: 12)
+        text.textContainerInset = CGSize(width: 8, height: 8)
+        text.isVerticallyResizable = true; text.isHorizontallyResizable = false
+        text.minSize = CGSize(width: 0, height: scroll.contentSize.height)
+        text.maxSize = CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        text.autoresizingMask = [.width]
+        text.textContainer?.widthTracksTextView = true
+        let notes = release.body?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        text.string = notes.isEmpty ? "前往发布页面查看更新说明。" : String(notes.prefix(20_000)) + (notes.count > 20_000 ? "\n\n更多内容请点击‘查看版本说明’。" : "")
+        text.setAccessibilityLabel("版本更新说明")
+        scroll.documentView = text
+        text.sizeToFit()
+        alert.accessoryView = scroll
         let supported = release.installer(architecture: Self.architecture) != nil
         alert.addButton(withTitle: supported ? "立即更新" : "查看发布页面")
         if supported { alert.addButton(withTitle: "查看版本说明") }
         alert.addButton(withTitle: "稍后")
+        alert.buttons.first?.keyEquivalent = "\r"
+        alert.buttons.last?.keyEquivalent = "\u{1b}"
+        alert.buttons.last?.keyEquivalentModifierMask = []
+        return alert
+    }
+
+    private func presentUpdate(_ release: GitHubRelease) {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = makeUpdateAlert(release)
+        let supported = release.installer(architecture: Self.architecture) != nil
         let result = alert.runModal()
         if result == .alertFirstButtonReturn {
             if supported { Task { await downloadInstaller() } }
