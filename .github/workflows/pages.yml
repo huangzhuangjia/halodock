@@ -14,7 +14,19 @@ concurrency:
   group: github-pages
   cancel-in-progress: false
 jobs:
+  refresh-after-release:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Deploy latest release metadata from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main
   deploy:
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -26,6 +38,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api repos/${GITHUB_REPOSITORY}/releases/latest --jq '{tag_name,body,html_url,draft,prerelease,assets:[.assets[]|{name,browser_download_url,size,digest}]}' > website/release.json
+      - name: Set direct download links and fallback version
+        run: python3 Scripts/update-site-release.py
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

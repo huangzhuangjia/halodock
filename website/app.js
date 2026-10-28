@@ -9,7 +9,7 @@
   };
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
-  fetch('./release.json', {cache: 'no-cache', signal: controller.signal})
+  fetch(`./release.json?v=${encodeURIComponent(document.querySelector('meta[name="halodock-release"]')?.content || 'latest')}`,  {cache: 'no-cache', signal: controller.signal})
     .then(response => response.ok ? response : fetch(endpoint, {headers: {'Accept': 'application/vnd.github+json'}, signal: controller.signal}))
     .then(response => { if (!response.ok) throw new Error('Release unavailable'); return response.json(); })
     .then(release => {
