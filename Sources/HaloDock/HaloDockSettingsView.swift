@@ -36,7 +36,7 @@ struct HaloDockSettingsView: View {
                     .foregroundStyle(.secondary)
             }
             Section("关于当前版本") {
-                LabeledContent("版本", value: "0.1.0")
+                LabeledContent("版本", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "开发版")
                 Text("状态指标来自本机，每 2 秒更新。网络显示连接情况，不代表互联网速度。剪贴板仅记录运行期间复制的文本或文件，保存在内存中，退出后清空。")
                     .font(.callout)
                     .foregroundStyle(.secondary)
