@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct HaloDockSettingsView: View {
+    @ObservedObject private var updates = UpdateManager.shared
+    @AppStorage("automaticallyCheckUpdates") private var automaticallyCheckUpdates = true
     @ObservedObject private var login = LoginItemState.shared
     @AppStorage("showStorage") private var showStorage = true
     @AppStorage("showRecentClipboard") private var showRecentClipboard = true
@@ -16,6 +18,32 @@ struct HaloDockSettingsView: View {
                 }
                 Text("菜单栏里的轻量工具箱")
                     .foregroundStyle(.secondary)
+            }
+            Section("软件更新") {
+                LabeledContent("当前版本", value: updates.currentVersion)
+                Toggle("自动检查更新", isOn: $automaticallyCheckUpdates)
+                HStack {
+                    Button(updates.isChecking ? "正在检查…" : "检查更新") {
+                        Task { await updates.check(interactive: true) }
+                    }
+                    .disabled(updates.isChecking || updates.isDownloading)
+                    if updates.isChecking || updates.isDownloading {
+                        ProgressView().controlSize(.small)
+                    }
+                    Spacer()
+                    if updates.availableRelease != nil {
+                        Button(updates.isDownloading ? "正在下载…" : "下载安装") {
+                            Task { await updates.downloadInstaller() }
+                        }
+                        .disabled(updates.isDownloading)
+                    }
+                }
+                Text(updates.message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Link("查看 GitHub Releases", destination: UpdateManager.releasesURL)
+                    .font(.caption)
             }
             Section("启动与运行") {
                 Toggle("登录 Mac 时启动 HaloDock", isOn: Binding(

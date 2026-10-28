@@ -13,6 +13,7 @@ let package = Package(
         .executableTarget(
             name: "HaloDock",
             path: "Sources/HaloDock"
-        )
+        ),
+        .testTarget(name: "HaloDockTests", dependencies: ["HaloDock"])
     ]
 )

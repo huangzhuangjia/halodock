@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct HaloDockView: View {
+    @ObservedObject private var updates = UpdateManager.shared
     let openSettings: () -> Void
     @ObservedObject var system: SystemState
     let emptyTrash: () -> Void
@@ -11,6 +12,16 @@ struct HaloDockView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
+            if let release = updates.availableRelease {
+                Button(action: openSettings) {
+                    Label("发现 \(release.tag_name)，前往下载安装", systemImage: "arrow.down.circle")
+                        .font(.callout.weight(.medium))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                }
+                .buttonStyle(.bordered)
+                .padding(.top, 14)
+            }
             statusSummary
             Divider().padding(.vertical, 16)
             quickActions

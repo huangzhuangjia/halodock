@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let application = NSApplication.shared
         application.setActivationPolicy(.accessory)
         LoginItemState.shared.configureOnLaunch()
+        UpdateManager.shared.startAutomaticChecks()
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.image = HaloDockBrand.image()

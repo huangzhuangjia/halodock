@@ -24,6 +24,9 @@ import SwiftUI
         defer { state.shutdown(); board.releaseGlobally() }
         try await Task.sleep(for: .seconds(1))
         try capture(HaloDockView(openSettings: {}, system: state, emptyTrash: {}, takeScreenshot: {}), path: CommandLine.arguments[1]+"/panel.png", width: 390)
+        app.appearance = NSAppearance(named: .darkAqua)
+        try capture(HaloDockView(openSettings: {}, system: state, emptyTrash: {}, takeScreenshot: {}).environment(\.colorScheme, .dark), path: CommandLine.arguments[1]+"/panel-dark.png", width: 390)
+        app.appearance = NSAppearance(named: .aqua)
         LoginItemState.shared.configureOnLaunch()
         try capture(HaloDockSettingsView(), path: CommandLine.arguments[1]+"/settings.png", width: 460, height: 620)
     }
