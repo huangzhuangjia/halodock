@@ -4,15 +4,15 @@ import SwiftUI
 /// A single vector master shared by the menu bar and all in-app brand marks.
 @MainActor
 enum HaloDockBrand {
-    static func draw(in rect: NSRect) {
+    static func draw(in rect: NSRect, color: NSColor = .black) {
         NSGraphicsContext.saveGraphicsState()
         defer { NSGraphicsContext.restoreGraphicsState() }
         let transform = NSAffineTransform()
         transform.translateX(by: rect.minX, yBy: rect.minY)
         transform.scale(by: rect.width / 24)
         transform.concat()
-        NSColor.black.setStroke()
-        NSColor.black.setFill()
+        color.setStroke()
+        color.setFill()
 
         func stroke(_ path: NSBezierPath, width: CGFloat = 1.8) {
             path.lineWidth = width
@@ -52,12 +52,12 @@ enum HaloDockBrand {
         stroke(stand, width: 1.7)
     }
 
-    static func image(size: CGFloat = 18) -> NSImage {
+    static func image(size: CGFloat = 18, color: NSColor? = nil) -> NSImage {
         let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
-            draw(in: rect)
+            draw(in: rect, color: color ?? .black)
             return true
         }
-        image.isTemplate = true
+        image.isTemplate = color == nil
         image.accessibilityDescription = "HaloDock 歪头屏"
         return image
     }

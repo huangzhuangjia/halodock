@@ -81,6 +81,11 @@ struct HaloDockSettingsView: View {
                     .foregroundStyle(.secondary)
             }
             Section("权限") {
+                LabeledContent("截图与标注", value: "需要屏幕录制")
+                Button("打开屏幕录制权限设置") {
+                    if let url=URL(string:"x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {NSWorkspace.shared.open(url)}
+                }
+
                 LabeledContent("清空废纸篓", value: "需要控制 Finder")
                 Button("打开自动化权限设置") {
                     NSWorkspace.shared.open(FinderAutomation.settingsURL)

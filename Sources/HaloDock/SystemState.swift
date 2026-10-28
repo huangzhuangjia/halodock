@@ -135,11 +135,4 @@ final class SystemState: ObservableObject {
         }
     }
 
-    func takeScreenshot() {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-        process.arguments = ["-i", "-c"]
-        do { try process.run() }
-        catch { actionError = "无法打开截图工具：\(error.localizedDescription)" }
-    }
 }

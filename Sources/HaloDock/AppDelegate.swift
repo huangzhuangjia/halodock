@@ -1,12 +1,15 @@
 import AppKit
 import SwiftUI
+import Combine
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
     private let system = SystemState()
+    private let screenshots = ScreenshotCoordinator()
     private var settingsWindow: NSWindow?
+    private var wakeObservation: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let application = NSApplication.shared
@@ -15,9 +18,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UpdateManager.shared.startAutomaticChecks()
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.image = HaloDockBrand.image()
+        updateStatusIcon()
+        wakeObservation = system.$keepAwake.removeDuplicates().sink { [weak self] enabled in
+            Task { @MainActor [weak self] in self?.updateStatusIcon(keepAwake: enabled) }
+        }
         statusItem.button?.imagePosition = .imageOnly
-        statusItem.button?.toolTip = "HaloDock"
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePopover(_:))
 
@@ -30,9 +35,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }, takeScreenshot: { [weak self] in
             self?.popover.performClose(nil)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-                self?.system.takeScreenshot()
+                self?.screenshots.start()
             }
         }))
+    }
+
+    private func updateStatusIcon(keepAwake: Bool? = nil) {
+        let enabled = keepAwake ?? system.keepAwake
+        let coral = NSColor(calibratedRed: 0.95, green: 0.33, blue: 0.20, alpha: 1)
+        statusItem.button?.image = HaloDockBrand.image(color: enabled ? coral : nil)
+        statusItem.button?.toolTip = enabled ? "HaloDock · 保持唤醒已开启" : "HaloDock · 保持唤醒已关闭"
+        statusItem.button?.setAccessibilityLabel(enabled ? "HaloDock，保持唤醒已开启" : "HaloDock，保持唤醒已关闭")
     }
 
     func showSettings() {

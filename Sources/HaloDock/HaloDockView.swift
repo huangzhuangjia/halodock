@@ -119,7 +119,7 @@ struct HaloDockView: View {
 
             ActionRow(
                 title: "截取屏幕",
-                detail: "按钮：选区复制 · 系统快捷键：⌃⌘⇧4",
+                detail: "选区后直接标注 · 复制或保存",
                 symbol: "rectangle.dashed.and.paperclip",
                 tint: .haloBlue,
                 trailing: AnyView(
