@@ -52,6 +52,16 @@ struct HaloDockSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Section("权限") {
+                LabeledContent("清空废纸篓", value: "需要控制 Finder")
+                Button("打开自动化权限设置") {
+                    NSWorkspace.shared.open(FinderAutomation.settingsURL)
+                }
+                Text("在自动化中展开 HaloDock，允许 Finder。首次确认清空时，系统会请求授权。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Section("关于当前版本") {
                 LabeledContent("版本", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "开发版")
                 Text("状态指标来自本机，每 2 秒更新。网络显示连接情况，不代表互联网速度。剪贴板仅记录运行期间复制的文本或文件，保存在内存中，退出后清空。")

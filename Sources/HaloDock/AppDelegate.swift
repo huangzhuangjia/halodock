@@ -64,17 +64,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: "取消")
         alert.addButton(withTitle: "清空废纸篓")
         guard alert.runModal() == .alertSecondButtonReturn else { return }
+        let permission = FinderAutomation.permissionStatus(requestIfNeeded: true)
+        guard permission == noErr else {
+            FinderAutomation.showFailure(code: Int(permission), detail: nil)
+            return
+        }
         // Ask Finder to handle all mounted volumes and its usual permission rules.
-        let script = NSAppleScript(source: "tell application \"Finder\" to empty trash")
+        guard let script = NSAppleScript(source: "tell application \"Finder\" to empty trash") else {
+            FinderAutomation.showFailure(code: -1, detail: "无法创建 Finder 操作。")
+            return
+        }
         var error: NSDictionary?
-        script?.executeAndReturnError(&error)
+        script.executeAndReturnError(&error)
         if let error {
-            let message = error[NSAppleScript.errorMessage] as? String ?? "无法清空废纸篓"
-            let failure = NSAlert()
-            failure.messageText = "清空未完成"
-            failure.informativeText = message
-            failure.addButton(withTitle: "好")
-            failure.runModal()
+            let code = error[NSAppleScript.errorNumber] as? Int ?? -1
+            let message = error[NSAppleScript.errorMessage] as? String
+            FinderAutomation.showFailure(code: code, detail: message)
         } else {
             system.refresh()
         }

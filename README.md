@@ -43,3 +43,5 @@ GitHub Releases 保存每版 DMG 和更新说明，Git 标签（如 `v0.1.0`）�
 DMG 使用暖白背景、中文安装提示和拖拽布局；后台使用 dmgbuild 1.6.7 写入 Finder 视图设置。
 首次打包需要 Python 3.10+，可用 `DMG_PYTHON=python3.12 ./Scripts/build-dmg.sh` 选择解释器。
 脚本把打包依赖隔离在 `.build/dmg-tools/`，不修改系统 Python。
+
+清空废纸篓前会检测 Finder 自动化权限。拒绝授权时显示“前往设置”，打开“隐私与安全性 → 自动化”；普通 Finder 文件错误提供“打开废纸篓”入口，并保留错误码，不将所有失败归因为权限问题。
