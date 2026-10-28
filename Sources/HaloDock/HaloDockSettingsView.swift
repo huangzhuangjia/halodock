@@ -1,0 +1,51 @@
+import SwiftUI
+
+struct HaloDockSettingsView: View {
+    @AppStorage("showStorage") private var showStorage = true
+    @AppStorage("showRecentClipboard") private var showRecentClipboard = true
+    @AppStorage("appearance") private var appearance = "system"
+    @AppStorage("accent") private var accent = "coral"
+
+    var body: some View {
+        Form {
+            Section {
+                HStack(spacing: 12) {
+                    BrandIcon(size: 32)
+                    Text("HaloDock").font(.title2.bold())
+                }
+                Text("菜单栏里的轻量工具箱")
+                    .foregroundStyle(.secondary)
+            }
+            Section("外观") {
+                Picker("主题", selection: $appearance) {
+                    Text("跟随系统").tag("system")
+                    Text("浅色").tag("light")
+                    Text("深色").tag("dark")
+                }
+                Picker("强调色", selection: $accent) {
+                    Text("珊瑚橙").tag("coral")
+                    Text("蓝色").tag("blue")
+                    Text("绿色").tag("green")
+                }
+            }
+            Section("面板显示") {
+                Toggle("显示硬盘可用空间", isOn: $showStorage)
+                Toggle("显示最近复制", isOn: $showRecentClipboard)
+                Text("修改自动保存，重新打开菜单栏面板即可查看。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section("关于当前版本") {
+                LabeledContent("版本", value: "0.1.0")
+                Text("状态指标来自本机，每 2 秒更新。网络显示连接情况，不代表互联网速度。剪贴板仅记录运行期间复制的文本或文件，保存在内存中，退出后清空。")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 460, height: 520)
+        .navigationTitle("HaloDock 设置")
+        .modifier(HaloDockTheme())
+    }
+}
