@@ -99,16 +99,16 @@ final class WorkbenchStore: ObservableObject {
         var next = data; next.items.removeAll { $0.collectionID == id }; next.collections.removeAll { $0.id == id }; next.selectedCollection = next.collections[0].id
         if commit(next) { for asset in assets { try? fm.removeItem(at: directory.appendingPathComponent(asset)) } }
     }
-    @discardableResult func add(text: String, title: String? = nil) -> Bool {
+    @discardableResult func add(text: String, title: String? = nil, to destination: UUID? = nil) -> Bool {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, text.utf8.count <= 1_000_000 else { message = "文字不能为空或超过 1 MB"; return false }
-        return addItem(WorkItem(collectionID: selectedCollection, title: title ?? String(text.prefix(60)), kind: .text, text: text))
+        return addItem(WorkItem(collectionID: destination ?? selectedCollection, title: title ?? String(text.prefix(60)), kind: .text, text: text))
     }
-    @discardableResult func add(image: CGImage, title: String = "截图") -> Bool {
+    @discardableResult func add(image: CGImage, title: String = "截图", to destination: UUID? = nil) -> Bool {
         guard Double(image.width) * Double(image.height) <= 40_000_000,
               let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { message = "图片过大或无法编码"; return false }
-        return addAsset(png, extension: "png", kind: .image, title: title)
+        return addAsset(png, extension: "png", kind: .image, title: title, to: destination)
     }
-    @discardableResult func addAsset(_ bytes: Data, extension ext: String, kind: WorkItem.Kind, title: String) -> Bool {
+    @discardableResult func addAsset(_ bytes: Data, extension ext: String, kind: WorkItem.Kind, title: String, to destination: UUID? = nil) -> Bool {
         guard (ext == "png" && kind == .image) || (ext == "gif" && kind == .gif), bytes.count <= 40 * 1024 * 1024,
               let source = CGImageSourceCreateWithData(bytes as CFData, nil), CGImageSourceGetCount(source) > 0,
               items.count < 300 else { message = "工作台最多 300 项，单个附件最多 40 MB"; return false }
@@ -117,24 +117,25 @@ final class WorkbenchStore: ObservableObject {
         let filename = UUID().uuidString + "." + ext, url = directory.appendingPathComponent(filename)
         do { try bytes.write(to: url, options: .atomic) }
         catch { message = "附件保存失败：" + error.localizedDescription; return false }
-        if addItem(WorkItem(collectionID: selectedCollection, title: title, kind: kind, asset: filename)) { return true }
+        if addItem(WorkItem(collectionID: destination ?? selectedCollection, title: title, kind: kind, asset: filename)) { return true }
         try? fm.removeItem(at: url); return false
     }
-    @discardableResult func add(file: URL) -> Bool {
+    @discardableResult func add(file: URL, to destination: UUID? = nil) -> Bool {
         guard file.isFileURL else { return false }
-        return addItem(WorkItem(collectionID: selectedCollection, title: file.lastPathComponent, kind: .file, fileURL: file))
+        return addItem(WorkItem(collectionID: destination ?? selectedCollection, title: file.lastPathComponent, kind: .file, fileURL: file))
     }
     @discardableResult private func addItem(_ item: WorkItem) -> Bool {
+        guard collections.contains(where: { $0.id == item.collectionID }) else { message = "目标工作台已不存在，请重新选择"; return false }
         guard items.count < 300 else { message = "最多保存 300 项，请先清理"; return false }
         var next = data; next.items.insert(item, at: 0)
-        if commit(next) { message = "已加入「" + (collections.first { $0.id == selectedCollection }?.name ?? "工作台") + "」"; return true }
+        if commit(next) { message = "已加入「" + (collections.first { $0.id == item.collectionID }?.name ?? "工作台") + "」"; return true }
         return false
     }
-    func addClipboard(_ item: ClipboardItem) {
+    func addClipboard(_ item: ClipboardItem, to destination: UUID? = nil) {
         if let image = item.imageData {
-            if let decoded = NSImage(data: image)?.cgImage(forProposedRect: nil, context: nil, hints: nil) { _ = add(image: decoded, title: item.title) }
-        } else if !item.fileURLs.isEmpty { for file in item.fileURLs { _ = add(file: file) } }
-        else { _ = add(text: item.text) }
+            if let decoded = NSImage(data: image)?.cgImage(forProposedRect: nil, context: nil, hints: nil) { _ = add(image: decoded, title: item.title, to: destination) }
+        } else if !item.fileURLs.isEmpty { for file in item.fileURLs { _ = add(file: file, to: destination) } }
+        else { _ = add(text: item.text, to: destination) }
     }
     func assetURL(_ item: WorkItem) -> URL? { item.asset.map { directory.appendingPathComponent($0) } ?? item.fileURL }
     func remove(_ item: WorkItem) {

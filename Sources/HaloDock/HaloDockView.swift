@@ -109,13 +109,15 @@ struct HaloDockView: View {
             Button { WorkbenchWindow.shared.show() } label: {
                 Image(systemName: "square.stack.3d.up").foregroundStyle(.secondary)
             }.buttonStyle(.plain).help("打开工作台与文本片段").accessibilityLabel("打开工作台与文本片段")
-            Button(action: openSettings) {
-                Image(systemName: "ellipsis")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
+            Menu {
+                Button("打开设置", action: openSettings)
+                Button("问题反馈与功能建议") { FeedbackWindow.shared.show() }
+                Button("查看已有问题") { NSWorkspace.shared.open(FeedbackReport.issuesURL) }
+            } label: {
+                Image(systemName: "ellipsis").font(.headline).foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("更多设置")
+            .menuStyle(.borderlessButton).fixedSize().frame(width: 22)
+            .accessibilityLabel("更多：设置与反馈")
         }
     }
 

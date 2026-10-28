@@ -1,7 +1,7 @@
 import Foundation
 
 enum SettingsPage: String, CaseIterable, Identifiable {
-    case general, appearance, shortcuts, capture, clipboard, awake, panel, workbench, permissions, updates, about
+    case general, appearance, shortcuts, capture, clipboard, awake, panel, workbench, dockPreview, permissions, updates, feedback, about
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -13,8 +13,10 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .awake: "唤醒与合盖"
         case .panel: "场景与组件"
         case .workbench: "工作台与片段"
+        case .dockPreview: "Dock 预览"
         case .permissions: "权限"
         case .updates: "软件更新"
+        case .feedback: "问题反馈"
         case .about: "关于 HaloDock"
         }
     }
@@ -28,8 +30,10 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .awake: "sun.max"
         case .panel: "rectangle.3.group"
         case .workbench: "square.stack.3d.up"
+        case .dockPreview: "dock.rectangle"
         case .permissions: "hand.raised"
         case .updates: "arrow.down.circle"
+        case .feedback: "bubble.left.and.bubble.right"
         case .about: "info.circle"
         }
     }
@@ -43,8 +47,10 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .awake: "按需保持运行，明确掌握每一次唤醒会话。"
         case .panel: "场景、组件大小与常用操作，按你的习惯排列。"
         case .workbench: "收集当前任务需要的内容，保存可复用的文字。"
+        case .dockPreview: "悬停查看 App 与 Finder 窗口，点击快速切换。"
         case .permissions: "查看需要的系统权限，并前往授权。"
         case .updates: "获取新功能和修复，在 App 内完成更新。"
+        case .feedback: "报告问题、提出建议，查看处理进展。"
         case .about: "菜单栏里的轻量工具箱。"
         }
     }

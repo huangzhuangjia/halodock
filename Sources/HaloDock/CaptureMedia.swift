@@ -94,12 +94,23 @@ enum ScrollStitcher {
         guard let image = ctx.makeImage() else { throw WorkError("无法生成长图") }
         return image
     }
-    static func isDuplicate(_ a: CGImage, _ b: CGImage) -> Bool {
-        guard a.width == b.width, a.height == b.height,
-              let smallA = CaptureImage.resized(a, maxWidth: 64), let smallB = CaptureImage.resized(b, maxWidth: 64),
-              let da = smallA.dataProvider?.data, let db = smallB.dataProvider?.data else { return false }
-        return (da as Data) == (db as Data)
+    static func difference(_ a: CGImage, _ b: CGImage) -> Double {
+        guard a.width == b.width, a.height == b.height else { return 255 }
+        let width = 64, height = min(160, max(16, a.height * width / max(1, a.width)))
+        func raster(_ image: CGImage) -> [UInt8]? {
+            var bytes = [UInt8](repeating: 0, count: width * height)
+            let ok = bytes.withUnsafeMutableBytes { ptr -> Bool in
+                guard let ctx = CGContext(data: ptr.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width, space: CGColorSpaceCreateDeviceGray(), bitmapInfo: 0) else { return false }
+                ctx.interpolationQuality = .low
+                ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height)); return true
+            }
+            return ok ? bytes : nil
+        }
+        guard let first = raster(a), let second = raster(b) else { return 255 }
+        return Double(zip(first, second).reduce(0) { $0 + abs(Int($1.0) - Int($1.1)) }) / Double(first.count)
     }
+    static func isDuplicate(_ a: CGImage, _ b: CGImage) -> Bool { difference(a, b) < 0.8 }
+
 }
 
 final class GIFEncoder {

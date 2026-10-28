@@ -3,9 +3,10 @@ import UniformTypeIdentifiers
 import ImageIO
 
 @MainActor
-final class WorkbenchWindow {
+final class WorkbenchWindow: NSObject, NSWindowDelegate {
     static let shared = WorkbenchWindow()
     private var window: NSWindow?
+    var hasPresentedEditor = false
     func show() {
         if window == nil {
             let next = NSWindow(contentViewController: NSHostingController(rootView: WorkbenchView(store: .shared)))
@@ -14,9 +15,15 @@ final class WorkbenchWindow {
             next.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             next.minSize = CGSize(width: 760, height: 540)
             next.isReleasedWhenClosed = false
+            next.delegate = self
             next.center(); window = next
         }
         window?.deminiaturize(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+    }
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard hasPresentedEditor else { return true }
+        show()
+        return false
     }
 }
 
@@ -32,6 +39,9 @@ struct WorkbenchView: View {
     @State private var note = ""
     @State private var addingNote = false
     @State private var preview: WorkItem?
+    @State private var pendingRemoval: WorkItem?
+    @State private var pendingSnippetRemoval: TextSnippet?
+    private var editorPresented: Bool { newCollection || renameCollection || addingNote || editingSnippet != nil }
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 12) {
@@ -92,17 +102,26 @@ struct WorkbenchView: View {
         }
         .frame(minWidth: 760, idealWidth: 860, minHeight: 540, idealHeight: 620)
         .background(Color(nsColor: .windowBackgroundColor)).modifier(HaloDockTheme())
+        .onChange(of: editorPresented) { WorkbenchWindow.shared.hasPresentedEditor = $0 }
+        .onChange(of: mode) { _ in query = "" }
+        .onChange(of: store.selectedCollection) { _ in query = "" }
         .sheet(isPresented: $newCollection) { nameSheet(title: "新建工作台") { if store.createCollection(name) { newCollection = false } } }
         .sheet(isPresented: $renameCollection) { nameSheet(title: "重命名工作台") { store.renameCollection(name); renameCollection = false } }
         .sheet(isPresented: $addingNote) {
             VStack(alignment: .leading, spacing: 16) {
                 Text("添加文字").font(.headline)
                 TextEditor(text: $note).frame(width: 440, height: 220).border(Color.secondary.opacity(0.2))
-                HStack { Button("取消") { addingNote = false }; Spacer(); Button("加入工作台") { if store.add(text: note) { addingNote = false } }.disabled(note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).keyboardShortcut(.defaultAction) }
+                HStack { Button("取消") { addingNote = false }.keyboardShortcut(.cancelAction); Spacer(); Button("加入工作台") { if store.add(text: note) { addingNote = false } }.disabled(note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).keyboardShortcut(.defaultAction) }
             }.padding(24)
         }
         .sheet(item: $editingSnippet) { snippet in SnippetEditor(store: store, snippet: snippet) }
         .sheet(item: $preview) { item in WorkItemPreview(store: store, item: item) }
+        .confirmationDialog("移除这条收集内容？原始引用文件不受影响。", isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } })) {
+            Button("移除", role: .destructive) { if let item = pendingRemoval { store.remove(item) }; pendingRemoval = nil }
+        }
+        .confirmationDialog("删除这个文本片段？", isPresented: Binding(get: { pendingSnippetRemoval != nil }, set: { if !$0 { pendingSnippetRemoval = nil } })) {
+            Button("删除", role: .destructive) { if let snippet = pendingSnippetRemoval { store.removeSnippet(snippet) }; pendingSnippetRemoval = nil }
+        }
         .confirmationDialog("删除当前工作台及其收集内容？原始引用文件不受影响。", isPresented: $deletingCollection) {
             Button("删除工作台", role: .destructive) { store.removeCollection() }
         }
@@ -144,7 +163,7 @@ struct WorkbenchView: View {
                         Spacer(minLength: 0)
                         Menu {
                             ForEach(store.collections.filter { $0.id != item.collectionID }) { c in Button("移到「\(c.name)」") { store.move(item, to: c.id) } }
-                            Button("移除", role: .destructive) { store.remove(item) }
+                            Button("移除…", role: .destructive) { pendingRemoval = item }
                         } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).fixedSize()
                     }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
@@ -166,7 +185,7 @@ struct WorkbenchView: View {
                             Button("复制") { store.copySnippet(snippet) }.buttonStyle(.borderedProminent)
                             Button("编辑") { editingSnippet = snippet }
                             Spacer()
-                            Button("删除", role: .destructive) { store.removeSnippet(snippet) }
+                            Button("删除…", role: .destructive) { pendingSnippetRemoval = snippet }
                         }.controlSize(.small)
                     }.padding(14).frame(maxWidth: .infinity, alignment: .leading).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
                         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.secondary.opacity(0.12), lineWidth: 1))
@@ -181,7 +200,7 @@ struct WorkbenchView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text(title).font(.headline)
             TextField("名称", text: $name).textFieldStyle(.roundedBorder).frame(width: 300)
-            HStack { Button("取消") { newCollection = false; renameCollection = false }; Spacer(); Button("保存", action: save).disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).keyboardShortcut(.defaultAction) }
+            HStack { Button("取消") { newCollection = false; renameCollection = false }.keyboardShortcut(.cancelAction); Spacer(); Button("保存", action: save).disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).keyboardShortcut(.defaultAction) }
         }.padding(24)
     }
     private func thumbnail(_ url: URL) -> NSImage? {
@@ -210,22 +229,26 @@ private struct SnippetEditor: View {
             Text("可用变量：{{日期}}、{{时间}}、{{剪贴板}}。复制时替换，源内容保持不变。")
                 .font(.caption).foregroundStyle(.secondary)
             if let message = store.message { Text(message).font(.caption).foregroundStyle(.secondary) }
-            HStack { Button("取消") { dismiss() }; Spacer(); Button("保存") { if store.saveSnippet(snippet) { dismiss() } }.keyboardShortcut(.defaultAction) }
+            HStack { Button("取消") { dismiss() }.keyboardShortcut(.cancelAction); Spacer(); Button("保存") { if store.saveSnippet(snippet) { dismiss() } }.keyboardShortcut(.defaultAction) }
         }.padding(24)
     }
 }
 
-private struct WorkItemPreview: View {
+struct WorkItemPreview: View {
     @ObservedObject var store: WorkbenchStore
     let item: WorkItem
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack { Text(item.title).font(.headline).lineLimit(1); Spacer(); Button("完成") { dismiss() } }
+            HStack { Text(item.title).font(.headline).lineLimit(1); Spacer(); Button("完成") { dismiss() }.keyboardShortcut(.cancelAction) }
             if item.kind == .text { ScrollView { Text(item.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) } }
             else if let url = store.assetURL(item), item.kind == .file {
-                Text(url.path).textSelection(.enabled)
-                Button("在 Finder 中显示") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                DocumentFilePreview(url: url)
+                HStack {
+                    Text(url.lastPathComponent).font(.caption).foregroundStyle(.secondary).lineLimit(1).help(url.path)
+                    Spacer()
+                    Button("在 Finder 中显示") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                }
             } else if let url = store.assetURL(item) {
                 ScrollView([.vertical, .horizontal]) {
                     if let image = NSImage(contentsOf: url) { Image(nsImage: image).resizable().scaledToFit().frame(width: 580) }
@@ -237,7 +260,7 @@ private struct WorkItemPreview: View {
                     }
                 }
             }
-            Button("复制") { store.copy(item) }
+            HStack { Button("复制") { store.copy(item) }; if let message = store.message { Text(message).font(.caption).foregroundStyle(.secondary) } }
         }.padding(20).frame(width: 640, height: 520).modifier(HaloDockTheme())
     }
 }

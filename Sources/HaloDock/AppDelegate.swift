@@ -22,10 +22,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NotificationCenter.default.post(name: .haloDockShowUpdates, object: nil)
         }
         UpdateManager.shared.canRestart = { [weak self] in
-            self?.screenshots.hasActiveSession != true && self?.closedLid.active != true && self?.closedLid.isChanging != true
+            self?.screenshots.hasActiveSession != true && self?.closedLid.active != true && self?.closedLid.isChanging != true && !WorkbenchWindow.shared.hasPresentedEditor
         }
         UpdateManager.shared.restartBlockMessage = { [weak self] in
             if self?.closedLid.active == true || self?.closedLid.isChanging == true { return "请先关闭合盖模式，恢复睡眠后再重启更新。" }
+            if WorkbenchWindow.shared.hasPresentedEditor { return "请先保存或取消工作台中的编辑，再重启更新。" }
             return "请先完成或取消当前截图，再重启更新。"
         }
         UpdateManager.shared.startAutomaticChecks()
@@ -67,6 +68,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         GlobalShortcuts.shared.configure()
         countdownObservation = system.$wakeRemaining.sink { [weak self] remaining in
             self?.updateWakeTitle(remaining)
+        }
+        DockWindowPreview.shared.configure { [weak self] in
+            self?.screenshots.hasActiveSession == true || self?.popover.isShown == true
         }
         closedLid.configure()
         if UpdateManager.shared.shouldShowUpdateResult { showSettings() }
@@ -122,6 +126,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if WorkbenchWindow.shared.hasPresentedEditor {
+            WorkbenchWindow.shared.show()
+            let alert = NSAlert()
+            alert.messageText = "工作台有尚未完成的编辑"
+            alert.informativeText = "请先保存或取消当前编辑，再退出 HaloDock。"
+            alert.addButton(withTitle: "返回编辑")
+            alert.runModal()
+            return .terminateCancel
+        }
         if closedLid.isChanging {
             let alert = NSAlert()
             alert.messageText = "正在配置合盖模式"
@@ -147,6 +160,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        DockWindowPreview.shared.shutdown()
         screenshots.shutdown()
         GlobalShortcuts.shared.shutdown()
         PinnedScreenshots.shared.closeAll()

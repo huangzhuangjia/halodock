@@ -75,10 +75,12 @@ struct HaloDockSettingsView: View {
                     navigationRow(.awake)
                     navigationRow(.panel)
                     navigationRow(.workbench)
+                    navigationRow(.dockPreview)
                 }
                 Section("应用") {
                     navigationRow(.permissions)
                     navigationRow(.updates)
+                    navigationRow(.feedback)
                     navigationRow(.about)
                 }
             }.listStyle(.sidebar)
@@ -155,6 +157,8 @@ struct HaloDockSettingsView: View {
             ScenePanelSettings()
             ToolPreferencesSections(category: .panel)
             Section { Button("恢复默认场景") { ScenePanel.shared.reset() } }
+        case .dockPreview:
+            DockPreviewSettings()
         case .workbench:
             Section("工作台与片段") {
                 Text("按任务收集截图、识别文字和文件，导出 Markdown 或保存为快捷文本片段。所有内容保存在本机。")
@@ -220,6 +224,7 @@ struct HaloDockSettingsView: View {
                     .font(.caption)
             }
         case .permissions:
+            DockPreviewSettings()
             Section("权限") {
                 LabeledContent("截图与标注", value: "需要屏幕录制")
                 Button("打开屏幕录制权限设置") {
@@ -234,6 +239,14 @@ struct HaloDockSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+        case .feedback:
+            Section("反馈与跟进") {
+                Text("在 GitHub Issues 统一记录问题和功能建议，可查看处理状态和对应的修复版本。")
+                Button("填写问题反馈或功能建议") { FeedbackWindow.shared.show() }.buttonStyle(.borderedProminent)
+                Link("查看已有问题", destination: FeedbackReport.issuesURL)
+                Text("App 会帮你整理反馈草稿，可选择附带版本信息。下一步在 GitHub 登录并确认提交，反馈内容公开可见。")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         case .about:
             Section {
@@ -264,7 +277,7 @@ struct HaloDockSettingsView: View {
                 Label("提取中英文，在当前截图内选择、修改和复制", systemImage: "text.viewfinder")
                 Label("将带标注的截图置顶贴到桌面", systemImage: "pin")
                 Label("行动卡：加入工作台、复制 Markdown、打开识别链接", systemImage: "square.stack.3d.up")
-                Label("滚动截图：滚动后添加下一屏，自动匹配重叠", systemImage: "scroll")
+                Label("滚动截图：开始采集后缓慢滚动，自动拼接，完成后预览", systemImage: "scroll")
                 Label("GIF：选区录制，3 秒倒计时，最长 15 秒", systemImage: "record.circle")
                 Text("贴图可移动、缩放、调整透明度，最多同时 8 张；关闭窗口或退出 App 后释放。")
             }

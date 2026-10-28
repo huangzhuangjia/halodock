@@ -60,10 +60,10 @@ final class ScreenshotSelectionView: NSView, NSTextFieldDelegate {
         stack.addArrangedSubview(actions)
         let cards = NSStackView()
         cards.spacing = 8
-        for (title, action) in [("加入工作台", #selector(collectScreenshot)), ("滚动截图", #selector(startScrollCapture)), ("录制 GIF", #selector(startGIFCapture))] {
+        for (title, action) in [("加入工作台…", #selector(collectScreenshot(_:))), ("滚动截图", #selector(startScrollCapture)), ("录制 GIF", #selector(startGIFCapture))] {
             let button = NSButton(title: title, target: self, action: action)
             button.bezelStyle = .rounded; button.controlSize = .small
-            button.toolTip = title == "加入工作台" ? "保存当前截图及标注到本机工作台" : "捕获当前选区的原始画面，截图标注不会加入录制"
+            button.toolTip = title == "加入工作台…" ? "保存当前截图及标注到本机工作台" : "捕获当前选区的原始画面，截图标注不会加入录制"
             cards.addArrangedSubview(button)
         }
         stack.addArrangedSubview(cards)
@@ -334,7 +334,7 @@ final class ScreenshotSelectionView: NSView, NSTextFieldDelegate {
         let buttons = NSStackView()
         buttons.addArrangedSubview(NSButton(title: "复制全部", target: self, action: #selector(copyRecognizedText)))
         buttons.addArrangedSubview(NSButton(title: "Markdown", target: self, action: #selector(copyMarkdown)))
-        buttons.addArrangedSubview(NSButton(title: "收集文字", target: self, action: #selector(collectText)))
+        buttons.addArrangedSubview(NSButton(title: "收集文字", target: self, action: #selector(collectText(_:))))
         buttons.addArrangedSubview(NSButton(title: "链接…", target: self, action: #selector(openRecognizedLink)))
         buttons.addArrangedSubview(NSButton(title: "收起", target: self, action: #selector(hideRecognition)))
         layout.addArrangedSubview(header); layout.addArrangedSubview(scroll); layout.addArrangedSubview(buttons)
@@ -382,15 +382,20 @@ final class ScreenshotSelectionView: NSView, NSTextFieldDelegate {
             }
         }
     }
-    @objc private func collectScreenshot() {
+    @objc private func collectScreenshot(_ sender: NSButton) {
         commitText()
         guard let image = document?.renderedImage() else { return }
-        _ = WorkbenchStore.shared.add(image: image)
-        feedback = WorkbenchStore.shared.message; needsDisplay = true
+        WorkbenchDestinationPicker.show(in: sender, at: CGPoint(x: 0, y: sender.bounds.maxY)) { [weak self] id in
+            _ = WorkbenchStore.shared.add(image: image, to: id)
+            self?.feedback = WorkbenchStore.shared.message; self?.needsDisplay = true
+        }
     }
-    @objc private func collectText() {
-        _ = WorkbenchStore.shared.add(text: recognizedText.string, title: "截图文字")
-        feedback = WorkbenchStore.shared.message; needsDisplay = true
+    @objc private func collectText(_ sender: NSButton) {
+        let text = recognizedText.string
+        WorkbenchDestinationPicker.show(in: sender, at: CGPoint(x: 0, y: sender.bounds.maxY)) { [weak self] id in
+            _ = WorkbenchStore.shared.add(text: text, title: "截图文字", to: id)
+            self?.feedback = WorkbenchStore.shared.message; self?.needsDisplay = true
+        }
     }
     @objc private func copyMarkdown() {
         let board = NSPasteboard.general
