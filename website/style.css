@@ -49,3 +49,7 @@ body{padding-top:72px}.nav-wrap{position:fixed;top:0;left:0;right:0;z-index:100;
   .product-stage { padding: 16px; }
   .stage-app { max-width: calc(100% - 48px); }
 }
+
+.workbench-showcase { margin-top: 36px; }
+.workbench-showcase img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 20px 60px #34463710; }
+.workbench-showcase figcaption { margin-top: 16px; text-align: center; color: var(--muted); font-size: 12px; line-height: 1.6; }

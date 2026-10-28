@@ -74,6 +74,7 @@ struct HaloDockSettingsView: View {
                     navigationRow(.clipboard)
                     navigationRow(.awake)
                     navigationRow(.panel)
+                    navigationRow(.workbench)
                 }
                 Section("应用") {
                     navigationRow(.permissions)
@@ -148,8 +149,19 @@ struct HaloDockSettingsView: View {
                     Text("绿色").tag("green")
                 }
             }
-        case .shortcuts, .clipboard, .panel:
+        case .shortcuts, .clipboard:
             ToolPreferencesSections(category: page)
+        case .panel:
+            ScenePanelSettings()
+            ToolPreferencesSections(category: .panel)
+            Section { Button("恢复默认场景") { ScenePanel.shared.reset() } }
+        case .workbench:
+            Section("工作台与片段") {
+                Text("按任务收集截图、识别文字和文件，导出 Markdown 或保存为快捷文本片段。所有内容保存在本机。")
+                Button("打开工作台") { WorkbenchWindow.shared.show() }
+                Text("截图行动卡和最近复制菜单可加入当前工作台；片段支持 {{日期}}、{{时间}}、{{剪贴板}}。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         case .awake:
             ToolPreferencesSections(category: .awake)
             Section("合盖保持运行") {
@@ -251,6 +263,9 @@ struct HaloDockSettingsView: View {
                 Label("画笔、矩形、箭头与文字标注", systemImage: "pencil.tip")
                 Label("提取中英文，在当前截图内选择、修改和复制", systemImage: "text.viewfinder")
                 Label("将带标注的截图置顶贴到桌面", systemImage: "pin")
+                Label("行动卡：加入工作台、复制 Markdown、打开识别链接", systemImage: "square.stack.3d.up")
+                Label("滚动截图：滚动后添加下一屏，自动匹配重叠", systemImage: "scroll")
+                Label("GIF：选区录制，3 秒倒计时，最长 15 秒", systemImage: "record.circle")
                 Text("贴图可移动、缩放、调整透明度，最多同时 8 张；关闭窗口或退出 App 后释放。")
             }
             Section("操作提示") {

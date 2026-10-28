@@ -6,10 +6,11 @@ import ImageIO
 final class ScreenshotCoordinator {
     private var overlays: [NSWindow] = []
     private var capturing=false
-    var hasActiveSession: Bool { capturing || !overlays.isEmpty }
+    private var extended: ExtendedCaptureSession?
+    var hasActiveSession: Bool { capturing || !overlays.isEmpty || extended != nil }
 
     func start() {
-        guard !capturing && overlays.isEmpty else {return}
+        guard !hasActiveSession else {return}
         capturing=true
         Task { @MainActor in
             defer {capturing=false}
@@ -71,6 +72,14 @@ final class ScreenshotCoordinator {
             window.isOpaque=true
             window.collectionBehavior=[.canJoinAllSpaces,.fullScreenAuxiliary]
             let selection=ScreenshotSelectionView(frame:CGRect(origin:.zero,size:screen.frame.size),image:image)
+            selection.onExtendedCapture = { [weak self] mode, rect, image in
+                guard let self else { return }
+                self.closeSelection()
+                let session = ExtendedCaptureSession(mode: mode, screen: screen, selection: rect, initial: image)
+                session.onClose = { [weak self] in self?.extended = nil }
+                self.extended = session
+                session.show()
+            }
             selection.onPin = { image, point in PinnedScreenshots.shared.show(image, at: point) }
             selection.onCancel={ [weak self] in self?.closeSelection() }
             window.contentView=selection
@@ -89,6 +98,10 @@ final class ScreenshotCoordinator {
             window.orderOut(nil);window.close()
         }
         overlays.removeAll()
+    }
+    func shutdown() {
+        extended?.close(); extended = nil
+        closeSelection()
     }
     private func showPermissionHelp() {
         let alert=NSAlert()

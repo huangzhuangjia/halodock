@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct HaloDockView: View {
+    @ObservedObject var scenes: ScenePanel = .shared
+    @ObservedObject var workbench: WorkbenchStore = .shared
     @ObservedObject private var closedLid = ClosedLidState.shared
     @AppStorage("closedLidMinutes") private var closedLidMinutes = 60
     @ObservedObject private var updates = UpdateManager.shared
@@ -11,8 +13,6 @@ struct HaloDockView: View {
     @ObservedObject private var shortcuts = GlobalShortcuts.shared
     @AppStorage("showMacStatus") private var showMacStatus = true
     @AppStorage("showQuickActions") private var showQuickActions = true
-    @AppStorage("quickActionOrder") private var quickActionOrder = ""
-    @AppStorage("hiddenQuickActions") private var hiddenQuickActions = ""
     @AppStorage("wakeMinutes") private var wakeMinutes = 0
     @AppStorage("showStorage") private var showStorage = true
     @AppStorage("showRecentClipboard") private var showRecentClipboard = true
@@ -28,6 +28,9 @@ struct HaloDockView: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 header
+                Picker("场景", selection: Binding(get: { scenes.current.id }, set: scenes.select)) {
+                    ForEach(scenes.scenes) { scene in Label(scene.name, systemImage: scene.symbol).tag(scene.id) }
+                }.labelsHidden().pickerStyle(.menu).padding(.top, 12)
                 if updates.availableRelease != nil || updates.hasPreparedUpdate {
                     Button {
                         openSettings()
@@ -62,7 +65,8 @@ struct HaloDockView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     if showMacStatus { statusSummary }
                     if showQuickActions { quickActions }
-                    if showRecentClipboard {
+                    if scenes.current.showWorkbench { workbenchSection }
+                    if showRecentClipboard && scenes.current.showClipboard {
                         Divider()
                         ClipboardHistoryView(history: system.history)
                     }
@@ -104,6 +108,9 @@ struct HaloDockView: View {
                     .foregroundStyle(Color.haloGreen)
             }
             Spacer()
+            Button { WorkbenchWindow.shared.show() } label: {
+                Image(systemName: "square.stack.3d.up").foregroundStyle(.secondary)
+            }.buttonStyle(.plain).help("打开工作台与文本片段").accessibilityLabel("打开工作台与文本片段")
             Button(action: openSettings) {
                 Image(systemName: "ellipsis")
                     .font(.headline)
@@ -130,14 +137,13 @@ struct HaloDockView: View {
                 Spacer()
             }
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                StatusMetric(symbol: "battery.75percent", label: "电池", value: system.battery, tint: .haloGreen)
-                StatusMetric(symbol: "memorychip", label: "内存", value: system.memory, tint: .haloBlue)
-                StatusMetric(symbol: "wifi", label: "网络", value: system.network, tint: .haloOrange)
-                if showStorage {
-                    StatusMetric(symbol: "internaldrive", label: "硬盘可用", value: system.storage, tint: .haloBlue)
+            let widgets = scenes.current.widgets.filter { $0.visible && (showStorage || $0.widget != .storage) }
+            VStack(spacing: 8) {
+                ForEach(widgetRows(widgets), id: \.first?.id) { row in
+                    HStack(alignment: .top, spacing: 8) { ForEach(row) { config in StatusWidgetCard(config: config, system: system) } }
                 }
             }
+
         }
         .padding(14)
         .background(Color.haloGreen.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
@@ -148,10 +154,33 @@ struct HaloDockView: View {
         .padding(.top, 18)
     }
 
+    private func widgetRows(_ widgets: [WidgetConfiguration]) -> [[WidgetConfiguration]] {
+        var result: [[WidgetConfiguration]] = []
+        for widget in widgets {
+            if widget.size != .large, let last = result.last, last.count == 1, last[0].size == widget.size { result[result.count - 1].append(widget) }
+            else { result.append([widget]) }
+        }
+        return result
+    }
+
+    private var workbenchSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("工作台", systemImage: "square.stack.3d.up").font(.callout.weight(.semibold))
+                Spacer()
+                Button("打开") { WorkbenchWindow.shared.show() }.controlSize(.small)
+            }
+            Text("\(workbench.currentItems.count) 项收集 · \(workbench.snippets.count) 个文本片段").font(.caption).foregroundStyle(.secondary)
+            if !workbench.snippets.isEmpty {
+                Menu("复制文本片段") { ForEach(workbench.snippets.prefix(12)) { snippet in Button(snippet.title) { workbench.copySnippet(snippet) } } }.controlSize(.small)
+            }
+        }.padding(12).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+    }
+
     private var quickActions: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("快捷操作").font(.caption.weight(.medium)).foregroundStyle(.secondary)
-            ForEach(QuickAction.ordered(quickActionOrder).filter { !QuickAction.hidden(hiddenQuickActions).contains($0.rawValue) }) { action in
+            ForEach(scenes.current.actions.compactMap(QuickAction.init(rawValue:))) { action in
                 quickAction(action)
                 if action == .awake {
                     WakeDurationControl(minutes: Binding(get: { wakeMinutes }, set: { value in
@@ -297,32 +326,6 @@ private struct ActionRow: View {
         .background(background, in: RoundedRectangle(cornerRadius: 10))
     }
 }
-
-private struct StatusMetric: View {
-    let symbol: String
-    let label: String
-    let value: String
-    let tint: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 5) {
-                Image(systemName: symbol)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(tint)
-                Text(label)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            Text(value)
-                .font(.callout.weight(.bold))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(9)
-        .background(Color(nsColor: .windowBackgroundColor).opacity(0.72), in: RoundedRectangle(cornerRadius: 9))
-    }
-}
-
 private struct PanelContentHeight: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }

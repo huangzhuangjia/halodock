@@ -147,6 +147,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        screenshots.shutdown()
         GlobalShortcuts.shared.shutdown()
         PinnedScreenshots.shared.closeAll()
         system.shutdown()

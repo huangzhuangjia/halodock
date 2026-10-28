@@ -188,6 +188,33 @@ import Testing
 
 }
 
+@Test @MainActor func screenshotActionCardStartsExtendedCaptureWithSelectedPixels() throws {
+    _ = NSApplication.shared
+    let image = try sampleImage()
+    let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 1200, height: 800), styleMask: [.titled], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    let view = ScreenshotSelectionView(frame: CGRect(x: 0, y: 0, width: 1200, height: 800), image: image)
+    window.contentView = view
+    defer { view.hideRecognition(); window.close() }
+    func mouse(_ type: NSEvent.EventType, _ point: CGPoint) throws -> NSEvent {
+        try #require(NSEvent.mouseEvent(with: type, location: CGPoint(x: point.x, y: 800 - point.y), modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+    }
+    view.mouseDown(with: try mouse(.leftMouseDown, CGPoint(x: 100, y: 100)))
+    view.mouseDragged(with: try mouse(.leftMouseDragged, CGPoint(x: 500, y: 400)))
+    view.mouseUp(with: try mouse(.leftMouseUp, CGPoint(x: 500, y: 400)))
+    var modes: [ExtendedCaptureSession.Mode] = []
+    view.onExtendedCapture = { mode, rect, crop in
+        modes.append(mode)
+        #expect(rect == CGRect(x: 100, y: 100, width: 400, height: 300))
+        #expect(crop.width == 400 && crop.height == 300)
+    }
+    for title in ["滚动截图", "录制 GIF"] {
+        let button = try #require(buttons(in: view).first { $0.title == title })
+        #expect(NSApp.sendAction(try #require(button.action), to: button.target, from: button))
+    }
+    #expect(modes == [.scroll, .gif])
+}
+
 @Test @MainActor func renderToolPanelsForVisualReview() async throws {
     guard let directory = ProcessInfo.processInfo.environment["HALODOCK_RENDER_PREVIEWS"] else { return }
     _ = NSApplication.shared

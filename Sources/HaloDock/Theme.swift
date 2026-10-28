@@ -8,6 +8,7 @@ struct HaloDockTheme: ViewModifier {
         content
             .preferredColorScheme(appearance == "dark" ? .dark : appearance == "light" ? .light : nil)
             .tint(accentColor)
+            .accentColor(accentColor)
     }
 
     private var accentColor: Color {

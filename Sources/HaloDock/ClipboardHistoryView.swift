@@ -41,6 +41,13 @@ struct ClipboardHistoryView: View {
                         .accessibilityLabel(item.pinned ? "取消固定" : "固定记录")
                     Menu {
                         Button("复制") { history.copy(item) }
+                        Button("加入当前工作台") { WorkbenchStore.shared.addClipboard(item); history.message = WorkbenchStore.shared.message }
+                        if item.imageData == nil && item.fileURLs.isEmpty {
+                            Button("存为文本片段") {
+                                if WorkbenchStore.shared.saveSnippet(TextSnippet(title: item.title, body: item.text)) { history.message = "已保存为文本片段，可在工作台编辑" }
+                                else { history.message = WorkbenchStore.shared.message }
+                            }
+                        }
                         Button(item.pinned ? "取消固定" : "固定") { history.togglePin(item) }
                         Button("删除记录", role: .destructive) { history.remove(item) }
                     } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).fixedSize().frame(width: 20).help("记录操作")

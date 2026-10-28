@@ -7,8 +7,6 @@ struct ToolPreferencesSections: View {
     @AppStorage("showQuickActions") private var showQuickActions = true
     @AppStorage("showStorage") private var showStorage = true
     @AppStorage("showRecentClipboard") private var showRecentClipboard = true
-    @AppStorage("quickActionOrder") private var order = ""
-    @AppStorage("hiddenQuickActions") private var hidden = ""
     @AppStorage("clipboardRetentionMinutes") private var retention = 60
     @AppStorage("wakeMinutes") private var wakeMinutes = 0
 
@@ -61,28 +59,6 @@ struct ToolPreferencesSections: View {
                 Toggle("显示硬盘可用空间", isOn: $showStorage).disabled(!showMacStatus)
                 Toggle("显示快捷操作", isOn: $showQuickActions)
                 Toggle("显示最近复制", isOn: $showRecentClipboard)
-            }
-        }
-        if category == nil || category == .panel {
-            Section("快捷操作排序") {
-                ForEach(QuickAction.ordered(order)) { action in
-                    HStack(spacing: 10) {
-                        Toggle(action.title, isOn: Binding(get: { !QuickAction.hidden(hidden).contains(action.rawValue) }, set: { enabled in
-                            var values = QuickAction.hidden(hidden)
-                            if enabled { values.remove(action.rawValue) } else { values.insert(action.rawValue) }
-                            hidden = values.sorted().joined(separator: ",")
-                        }))
-                        Spacer()
-                        Button { order = QuickAction.moved(action, by: -1, in: order) } label: { Image(systemName: "chevron.up") }
-                            .disabled(QuickAction.ordered(order).first == action).help("上移").accessibilityLabel("上移\(action.title)")
-                        Button { order = QuickAction.moved(action, by: 1, in: order) } label: { Image(systemName: "chevron.down") }
-                            .disabled(QuickAction.ordered(order).last == action).help("下移").accessibilityLabel("下移\(action.title)")
-                    }.controlSize(.small)
-                }
-                Button("恢复默认面板") {
-                    order = ""; hidden = ""
-                    showMacStatus = true; showStorage = true; showQuickActions = true; showRecentClipboard = true
-                }
             }
         }
     }

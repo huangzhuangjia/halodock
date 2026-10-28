@@ -7,6 +7,7 @@ final class ScreenshotSelectionView: NSView, NSTextFieldDelegate {
     let image: CGImage
     var onCancel: (() -> Void)?
     var onPin: ((CGImage, CGPoint) -> Bool)?
+    var onExtendedCapture: ((ExtendedCaptureSession.Mode, CGRect, CGImage) -> Void)?
     private var recognitionTask: Task<Void, Never>?
     private let recognitionPanel = NSVisualEffectView()
     private let recognizedText = NSTextView()
@@ -57,6 +58,15 @@ final class ScreenshotSelectionView: NSView, NSTextFieldDelegate {
         actions.orientation = .horizontal; actions.spacing = 8
         stack.addArrangedSubview(tools)
         stack.addArrangedSubview(actions)
+        let cards = NSStackView()
+        cards.spacing = 8
+        for (title, action) in [("加入工作台", #selector(collectScreenshot)), ("滚动截图", #selector(startScrollCapture)), ("录制 GIF", #selector(startGIFCapture))] {
+            let button = NSButton(title: title, target: self, action: action)
+            button.bezelStyle = .rounded; button.controlSize = .small
+            button.toolTip = title == "加入工作台" ? "保存当前截图及标注到本机工作台" : "捕获当前选区的原始画面，截图标注不会加入录制"
+            cards.addArrangedSubview(button)
+        }
+        stack.addArrangedSubview(cards)
         stack.spacing=6
         stack.edgeInsets=NSEdgeInsets(top:8,left:10,bottom:8,right:10)
         let icons=["crop","pencil.tip","rectangle","arrow.up.right","textformat"]
@@ -323,6 +333,9 @@ final class ScreenshotSelectionView: NSView, NSTextFieldDelegate {
         header.textColor = .white
         let buttons = NSStackView()
         buttons.addArrangedSubview(NSButton(title: "复制全部", target: self, action: #selector(copyRecognizedText)))
+        buttons.addArrangedSubview(NSButton(title: "Markdown", target: self, action: #selector(copyMarkdown)))
+        buttons.addArrangedSubview(NSButton(title: "收集文字", target: self, action: #selector(collectText)))
+        buttons.addArrangedSubview(NSButton(title: "链接…", target: self, action: #selector(openRecognizedLink)))
         buttons.addArrangedSubview(NSButton(title: "收起", target: self, action: #selector(hideRecognition)))
         layout.addArrangedSubview(header); layout.addArrangedSubview(scroll); layout.addArrangedSubview(buttons)
         recognitionPanel.addSubview(layout)
@@ -368,6 +381,45 @@ final class ScreenshotSelectionView: NSView, NSTextFieldDelegate {
                 self.feedback = "识别失败：" + error.localizedDescription; self.needsDisplay = true
             }
         }
+    }
+    @objc private func collectScreenshot() {
+        commitText()
+        guard let image = document?.renderedImage() else { return }
+        _ = WorkbenchStore.shared.add(image: image)
+        feedback = WorkbenchStore.shared.message; needsDisplay = true
+    }
+    @objc private func collectText() {
+        _ = WorkbenchStore.shared.add(text: recognizedText.string, title: "截图文字")
+        feedback = WorkbenchStore.shared.message; needsDisplay = true
+    }
+    @objc private func copyMarkdown() {
+        let board = NSPasteboard.general
+        board.clearContents()
+        feedback = board.setString(ScreenshotActions.markdown(recognizedText.string), forType: .string) ? "Markdown 已复制" : "复制失败"
+        needsDisplay = true
+    }
+    @objc private func openRecognizedLink() {
+        let links = ScreenshotActions.links(in: recognizedText.string)
+        guard !links.isEmpty else { feedback = "未识别到网页链接"; needsDisplay = true; return }
+        let menu = NSMenu()
+        for url in links {
+            let item = NSMenuItem(title: String(url.absoluteString.prefix(100)), action: #selector(openLink(_:)), keyEquivalent: "")
+            item.target = self; item.representedObject = url; menu.addItem(item)
+        }
+        menu.popUp(positioning: nil, at: CGPoint(x: 12, y: 36), in: recognitionPanel)
+    }
+    @objc private func openLink(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL, ["https", "http"].contains(url.scheme) else { return }
+        hideRecognition(); onCancel?(); NSWorkspace.shared.open(url)
+    }
+    @objc private func startScrollCapture() { startExtendedCapture(.scroll) }
+    @objc private func startGIFCapture() { startExtendedCapture(.gif) }
+    private func startExtendedCapture(_ mode: ExtendedCaptureSession.Mode) {
+        commitText()
+        guard let document, let selection, selection.width >= 40, selection.height >= 40 else { feedback = "请先选择至少 40 × 40 点的范围"; needsDisplay = true; return }
+        guard let onExtendedCapture else { return }
+        hideRecognition()
+        onExtendedCapture(mode, selection, document.image)
     }
     @objc private func copyRecognizedText() {
         let board = NSPasteboard.general

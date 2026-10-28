@@ -10,6 +10,8 @@ final class SystemState: ObservableObject {
     @Published private(set) var memory = "读取中…"
     @Published private(set) var network = "检测中…"
     @Published private(set) var storage = "读取中…"
+    @Published private(set) var memoryFraction: Double?
+    @Published private(set) var storageFreeFraction: Double?
     let history: ClipboardHistory
     @Published private(set) var wakeEndsAt: Date?
     @Published private(set) var wakeRemaining = ""
@@ -72,16 +74,18 @@ final class SystemState: ObservableObject {
             let pages = UInt64(stats.active_count) + UInt64(stats.inactive_count) + UInt64(stats.wire_count) + UInt64(stats.compressor_page_count)
             let reclaimable = UInt64(stats.purgeable_count) + UInt64(stats.external_page_count)
             let used = (pages > reclaimable ? pages - reclaimable : 0) * UInt64(getpagesize())
+            memoryFraction = min(1, max(0, Double(used) / Double(ProcessInfo.processInfo.physicalMemory)))
             memory = "\(Int(min(100, Double(used) / Double(ProcessInfo.processInfo.physicalMemory) * 100).rounded()))%"
-        } else { memory = "暂不可用" }
+        } else { memory = "暂不可用"; memoryFraction = nil }
 
-        if let values = try? FileManager.default.homeDirectoryForCurrentUser.resourceValues(forKeys: [.volumeAvailableCapacityKey]),
+        if let values = try? FileManager.default.homeDirectoryForCurrentUser.resourceValues(forKeys: [.volumeAvailableCapacityKey, .volumeTotalCapacityKey]),
            let bytes = values.volumeAvailableCapacity {
             let formatter = ByteCountFormatter()
             formatter.countStyle = .decimal
             formatter.allowedUnits = [.useGB, .useTB]
+            storageFreeFraction = values.volumeTotalCapacity.flatMap { $0 > 0 ? min(1, max(0, Double(bytes) / Double($0))) : nil }
             storage = formatter.string(fromByteCount: Int64(bytes))
-        } else { storage = "暂不可用" }
+        } else { storage = "暂不可用"; storageFreeFraction = nil }
     }
 
     func startWake(minutes: Int) {
