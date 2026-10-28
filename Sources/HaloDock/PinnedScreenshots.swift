@@ -30,6 +30,8 @@ final class PinnedScreenshotController: NSWindowController, NSWindowDelegate {
         panel.title = "HaloDock 贴图"
         panel.identifier = NSUserInterfaceItemIdentifier("HaloDockPinnedScreenshot")
         panel.isReleasedWhenClosed = false
+        panel.isFloatingPanel = true
+        panel.hidesOnDeactivate = false
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.minSize = CGSize(width: 320, height: 180)

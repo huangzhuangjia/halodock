@@ -60,6 +60,20 @@ import Testing
     #expect(result == nil && !recorder.recording)
 }
 
+@Test @MainActor func menuBarPanelHasAUsableIntrinsicHeight() throws {
+    _ = NSApplication.shared
+    let name = "HaloDock.PanelSize.\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    let board = NSPasteboard(name: .init(name))
+    defer { defaults.removePersistentDomain(forName: name); board.releaseGlobally() }
+    let system = SystemState(pasteboard: board, defaults: defaults)
+    defer { system.shutdown() }
+    let host = NSHostingView(rootView: HaloDockView(openSettings: {}, system: system, emptyTrash: {}, takeScreenshot: {}))
+    let size = host.fittingSize
+    #expect(size.width == 390)
+    #expect(size.height >= 400 && size.height <= (NSScreen.main?.visibleFrame.height ?? 1000))
+}
+
 @MainActor private func buttons(in view: NSView) -> [NSButton] {
     (view as? NSButton).map { [$0] } ?? view.subviews.flatMap { buttons(in: $0) }
 }

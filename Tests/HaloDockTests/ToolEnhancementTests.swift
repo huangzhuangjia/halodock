@@ -153,6 +153,7 @@ import Testing
     #expect(pins.show(image))
     let controller = try #require(pins.controllers.values.first)
     #expect(controller.window?.level == .floating)
+    #expect(controller.window?.hidesOnDeactivate == false)
     #expect(controller.captureDocument.image.width == image.width)
     #expect(controller.window?.isVisible == true)
     controller.close()
