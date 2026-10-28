@@ -20,6 +20,8 @@
   <a href="https://github.com/huangzhuangjia/halodock/issues">反馈问题</a>
 </p>
 
+[访问 HaloDock 官网](https://huangzhuangjia.github.io/halodock/)
+
 ## 界面预览
 
 <table>
@@ -57,7 +59,7 @@
 3. 从“应用程序”打开 HaloDock，点击菜单栏里的“歪头屏”图标。
 4. 更新前先退出旧版，再用新版替换“应用程序”中的 HaloDock。
 
-当前发布包适用于 **Apple Silicon Mac，macOS 13 及以上**。仓库为私有，下载需要登录有权限的 GitHub 账号。
+当前发布包适用于 **Apple Silicon Mac，macOS 13 及以上**。仓库公开，源码和安装包均可直接访问。
 
 <img src="docs/images/installer.png" width="680" alt="HaloDock DMG 实际安装窗口：暖白品牌背景、歪头屏图标与拖拽安装引导" />
 
@@ -112,5 +114,6 @@ DMG_PYTHON=python3.12 ./Scripts/build-dmg.sh
 | `Scripts/` | App、图标、DMG 与文档截图生成脚本 |
 | `docs/images/` | README 品牌图与界面演示 |
 | `Design/` | 图标方案与设计探索 |
+| `website/` | GitHub Pages 官网与公开版本清单 |
 
 遇到问题，可以在 [Issues](https://github.com/huangzhuangjia/halodock/issues) 中描述 macOS 版本、HaloDock 版本和复现步骤；截图前请隐藏私人内容。
