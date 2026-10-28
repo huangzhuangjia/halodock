@@ -58,7 +58,7 @@ struct HaloDockView: View {
             .background(GeometryReader { geometry in
                 Color.clear.preference(key: PanelChromeHeight.self, value: geometry.size.height)
             })
-            ScrollView {
+            ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 16) {
                     if showMacStatus { statusSummary }
                     if showQuickActions { quickActions }
@@ -154,15 +154,10 @@ struct HaloDockView: View {
             ForEach(QuickAction.ordered(quickActionOrder).filter { !QuickAction.hidden(hiddenQuickActions).contains($0.rawValue) }) { action in
                 quickAction(action)
                 if action == .awake {
-                    Picker("唤醒时长", selection: Binding(get: { wakeMinutes }, set: { value in
+                    WakeDurationControl(minutes: Binding(get: { wakeMinutes }, set: { value in
                         wakeMinutes = value
                         if system.keepAwake { system.startWake(minutes: value) }
-                    })) {
-                        Text("持续唤醒").tag(0)
-                        Text("30 分钟").tag(30)
-                        Text("1 小时").tag(60)
-                        Text("2 小时").tag(120)
-                    }.controlSize(.small)
+                    }))
                 }
             }
             if closedLid.needsRestore {
@@ -192,7 +187,7 @@ struct HaloDockView: View {
         case .closedLid:
             ActionRow(
                 title: "合盖保持运行",
-                detail: closedLid.active ? (closedLid.endsAt.map { "运行至 " + $0.formatted(date: .omitted, time: .shortened) } ?? "直到关闭或退出") : "首次授权 · 本次会话使用",
+                detail: closedLid.active ? (closedLid.endsAt.map { "运行至 " + $0.formatted(date: .omitted, time: .shortened) } ?? "直到关闭或退出") : (closedLid.authorizationInstalled ? "已授权 · 本次会话使用" : "首次授权 · 本次会话使用"),
                 symbol: "laptopcomputer",
                 tint: .haloOrange,
                 trailing: AnyView(

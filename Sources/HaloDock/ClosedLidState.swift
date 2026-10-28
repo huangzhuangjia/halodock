@@ -53,7 +53,8 @@ final class ClosedLidState:ObservableObject {
         let alert=NSAlert()
         alert.messageText="开启合盖保持运行？"
         let duration=minutes==0 ? "直到手动关闭或退出 App":"最多 \(minutes) 分钟"
-        alert.informativeText="本次将阻止系统睡眠，合盖后继续运行，\(duration)。电池低于 20% 或系统温度过高时会恢复睡眠。\n\n首次授权只允许当前用户执行两条电源命令。合盖运行时请保持通风。"
+        let authorizationNote = authorizationInstalled ? "已配置合盖授权，本次将复用已有授权。" : "首次授权只允许当前用户执行两条电源命令。"
+        alert.informativeText="本次将阻止系统睡眠，合盖后继续运行，\(duration)。电池低于 20% 或系统温度过高时会恢复睡眠。\n\n\(authorizationNote)合盖运行时请保持通风。"
         alert.addButton(withTitle:authorizationInstalled ? "开启":"授权并开启");alert.addButton(withTitle:"取消")
         guard alert.runModal() == .alertFirstButtonReturn else {return}
         isChanging=true

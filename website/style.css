@@ -16,3 +16,36 @@ body{padding-top:72px}.nav-wrap{position:fixed;top:0;left:0;right:0;z-index:100;
 @media(max-width:760px){.product-stage{height:595px}.stage-heading{padding:14px 16px 0;letter-spacing:.2px;font-size:6px}.stage-theme button{padding:7px 9px;font-size:9px;min-height:32px}.stage-app{top:72px}.stage-caption{bottom:16px}}
 @media(max-width:370px){.product-stage{height:565px}.stage-app{top:72px}.stage-heading{font-size:5.5px}.stage-theme button{padding-inline:7px}.stage-caption{font-size:6px}}
 @media(max-width:760px){.stage-theme button{min-width:44px;min-height:44px;padding-inline:7px}}
+
+/* Keep the complete panel and its caption in separate layout rows. */
+.product-stage {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 18px;
+  padding: 20px 24px;
+}
+.stage-heading { padding: 0; min-width: 0; }
+.stage-app {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: auto;
+  height: 100%;
+  max-width: calc(100% - 70px);
+  aspect-ratio: 390 / 804;
+  margin-left: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.stage-app-bar { flex: 0 0 24px; }
+.stage-app > img { flex: 1 1 auto; min-height: 0; width: 100%; height: 0; object-fit: contain; }
+.stage-caption { position: relative; inset: auto; gap: 12px; line-height: 1.6; }
+@media (max-width: 760px) {
+  .product-stage { padding: 18px; gap: 16px; }
+  .stage-app { margin-left: 0; max-width: calc(100% - 65px); }
+}
+@media (max-width: 370px) {
+  .product-stage { padding: 16px; }
+  .stage-app { max-width: calc(100% - 48px); }
+}
