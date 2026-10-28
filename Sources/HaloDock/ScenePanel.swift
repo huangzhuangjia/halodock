@@ -148,19 +148,72 @@ struct StatusWidgetCard: View {
     private var fraction: Double? {
         switch config.widget { case .memory: system.memoryFraction; case .storage: system.storageFreeFraction; case .battery: Double(system.battery.replacingOccurrences(of: "%", with: "")).map { $0 / 100 }; case .network: nil }
     }
+    private var detail: String {
+        switch config.widget {
+        case .battery: fraction == nil ? "电池状态不可用" : "当前电量"
+        case .memory: fraction == nil ? "暂不可用" : "已用内存"
+        case .network: "网络连接状态"
+        case .storage: fraction.map { "剩余 \(Int(($0 * 100).rounded()))% 空间" } ?? "暂不可用"
+        }
+    }
+    private var tint: Color {
+        switch config.widget {
+        case .battery, .network: .haloGreen
+        case .memory: .haloBlue
+        case .storage: .haloOrange
+        }
+    }
+    private var progressLabel: String {
+        switch config.widget {
+        case .memory: "内存已用比例"
+        case .storage: "硬盘可用比例"
+        default: "电池电量"
+        }
+    }
     var body: some View {
-        VStack(alignment: .leading, spacing: config.size == .small ? 4 : 8) {
-            HStack {
-                Image(systemName: config.widget.symbol).foregroundStyle(Color.accentColor)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 6) {
+                Image(systemName: config.widget.symbol).foregroundStyle(tint).frame(width: 15)
                 Text(config.widget.title).foregroundStyle(.secondary)
-                if config.size == .small { Spacer(minLength: 0); Text(value).fontWeight(.semibold).foregroundStyle(.primary) }
-            }.font(.caption)
+                Spacer(minLength: 0)
+                if config.size == .small {
+                    Text(value).fontWeight(.semibold).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85)
+                }
+            }.font(.system(size: 11, weight: .medium))
+
             if config.size != .small {
-                HStack { Text(value).font(config.size == .large ? .title3.bold() : .callout.bold()); Spacer(); if config.widget == .storage, let fraction { Text("\(Int((fraction * 100).rounded()))% 可用").font(.caption).foregroundStyle(.secondary) } }
-                if let fraction { ProgressView(value: min(1, max(0, fraction))).tint(config.widget == .storage ? .haloGreen : .accentColor).accessibilityLabel(config.widget == .memory ? "内存已用比例" : config.widget == .storage ? "硬盘可用比例" : "电池电量") }
-                if config.size == .large { Text(config.widget == .memory ? "已用内存比例 · 不代表内存压力" : config.widget == .storage ? "剩余可用空间 / 磁盘总容量" : config.widget == .network ? "系统网络连接状态" : "当前电池电量").font(.caption2).foregroundStyle(.secondary) }
+                Text(value)
+                    .font(.system(size: config.size == .large ? 23 : 18, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.8)
+                    .padding(.top, 8)
+                Spacer(minLength: 6)
+                if let fraction {
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(tint.opacity(0.10))
+                            Capsule().fill(tint).frame(width: geometry.size.width * min(1, max(0, fraction)))
+                        }
+                    }
+                    .frame(height: 4)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(progressLabel)
+                    .accessibilityValue("\(Int((min(1, max(0, fraction)) * 100).rounded()))%")
+                } else {
+                    Color.clear.frame(height: 4).accessibilityHidden(true)
+                }
+                Text(detail)
+                    .font(.system(size: 10)).foregroundStyle(.secondary)
+                    .lineLimit(1).padding(.top, 6)
+                if config.size == .large {
+                    Text(config.widget == .memory ? "本机实时统计 · 不代表内存压力" : config.widget == .storage ? "可用容量 / 磁盘总容量" : config.widget == .network ? "连接状态不代表互联网速度" : "本机实时电池信息")
+                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1).padding(.top, 5)
+                }
             }
-        }.padding(config.size == .small ? 8 : 12).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+        }
+        .padding(config.size == .small ? 9 : 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: config.size == .small ? 38 : config.size == .medium ? 108 : 140)
+        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 11))
     }
 }

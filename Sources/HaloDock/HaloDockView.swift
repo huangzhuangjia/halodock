@@ -28,9 +28,7 @@ struct HaloDockView: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 header
-                Picker("场景", selection: Binding(get: { scenes.current.id }, set: scenes.select)) {
-                    ForEach(scenes.scenes) { scene in Label(scene.name, systemImage: scene.symbol).tag(scene.id) }
-                }.labelsHidden().pickerStyle(.menu).padding(.top, 12)
+                SceneSwitcher(scenes: scenes).padding(.top, 14)
                 if updates.availableRelease != nil || updates.hasPreparedUpdate {
                     Button {
                         openSettings()
@@ -123,14 +121,14 @@ struct HaloDockView: View {
 
     private var statusSummary: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Image(systemName: "desktopcomputer")
-                    .font(.system(size: 34, weight: .semibold))
+                    .font(.system(size: 25, weight: .medium))
                     .foregroundStyle(Color.haloGreen)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Mac 实时状态")
-                        .font(.title2.weight(.bold))
-                    Text("每 2 秒更新 · 网络为连接状态")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("本机数据 · 每 2 秒更新")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -151,7 +149,7 @@ struct HaloDockView: View {
             RoundedRectangle(cornerRadius: 14)
                 .stroke(Color.haloGreen.opacity(0.16), lineWidth: 1)
         }
-        .padding(.top, 18)
+        .padding(.top, 14)
     }
 
     private func widgetRows(_ widgets: [WidgetConfiguration]) -> [[WidgetConfiguration]] {
