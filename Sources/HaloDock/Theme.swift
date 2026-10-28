@@ -18,3 +18,9 @@ struct HaloDockTheme: ViewModifier {
         }
     }
 }
+
+extension Color {
+    static let haloOrange = Color(red: 0.95, green: 0.33, blue: 0.20)
+    static let haloGreen = Color(red: 0.12, green: 0.58, blue: 0.38)
+    static let haloBlue = Color(red: 0.18, green: 0.40, blue: 0.85)
+}

@@ -6,8 +6,6 @@ struct HaloDockSettingsView: View {
     @ObservedObject private var updates = UpdateManager.shared
     @AppStorage("automaticallyCheckUpdates") private var automaticallyCheckUpdates = true
     @ObservedObject private var login = LoginItemState.shared
-    @AppStorage("showStorage") private var showStorage = true
-    @AppStorage("showRecentClipboard") private var showRecentClipboard = true
     @AppStorage("appearance") private var appearance = "system"
     @AppStorage("accent") private var accent = "coral"
 
@@ -75,7 +73,7 @@ struct HaloDockSettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Button("系统登录项设置") { login.openSystemSettings() }
                     .controlSize(.small)
-                Text("保持唤醒会记住上次选择，并在下次启动时恢复。")
+                Text("保持唤醒会记住上次选择；定时唤醒只恢复尚未到期的会话。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -119,13 +117,7 @@ struct HaloDockSettingsView: View {
                     Text("绿色").tag("green")
                 }
             }
-            Section("面板显示") {
-                Toggle("显示硬盘可用空间", isOn: $showStorage)
-                Toggle("显示最近复制", isOn: $showRecentClipboard)
-                Text("修改自动保存，重新打开菜单栏面板即可查看。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            ToolPreferencesSections()
             Section("权限") {
                 LabeledContent("截图与标注", value: "需要屏幕录制")
                 Button("打开屏幕录制权限设置") {
@@ -143,7 +135,7 @@ struct HaloDockSettingsView: View {
             }
             Section("关于当前版本") {
                 LabeledContent("版本", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "开发版")
-                Text("状态指标来自本机，每 2 秒更新。网络显示连接情况，不代表互联网速度。剪贴板仅记录运行期间复制的文本或文件，保存在内存中，退出后清空。")
+                Text("状态指标来自本机，每 2 秒更新。网络显示连接情况，不代表互联网速度。截图识字在本机处理。普通剪贴板记录退出后清空；主动固定的文字、图片和文件引用保存在本机。")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

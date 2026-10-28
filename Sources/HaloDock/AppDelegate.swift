@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let closedLid = ClosedLidState.shared
     private var settingsWindow: NSWindow?
     private var wakeObservation: AnyCancellable?
+    private var countdownObservation: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let application = NSApplication.shared
@@ -42,13 +43,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }, system: system, emptyTrash: { [weak self] in
             self?.confirmEmptyTrash()
         }, takeScreenshot: { [weak self] in
-            self?.popover.performClose(nil)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-                self?.screenshots.start()
-            }
+            self?.takeScreenshot()
         }))
+        GlobalShortcuts.shared.onAction = { [weak self] action in
+            guard let self else { return }
+            // Do not steal keys or focus from an active capture editor.
+            guard !self.screenshots.hasActiveSession else { return }
+            switch action {
+            case .panel: self.togglePopover(nil)
+            case .screenshot: self.takeScreenshot()
+            case .awake:
+                if self.closedLid.isChanging { return }
+                if self.system.keepAwake || self.closedLid.active {
+                    Task { if await self.closedLid.stop() { self.system.setKeepAwake(false) } }
+                } else { self.system.startWake(minutes: UserDefaults.standard.integer(forKey: "wakeMinutes")) }
+            }
+        }
+        GlobalShortcuts.shared.configure()
+        countdownObservation = system.$wakeRemaining.sink { [weak self] remaining in
+            self?.updateWakeTitle(remaining)
+        }
         closedLid.configure()
         if UpdateManager.shared.shouldShowUpdateResult { showSettings() }
+    }
+
+    private func takeScreenshot() {
+        popover.performClose(nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.screenshots.start() }
     }
 
     private func updateStatusIcon(keepAwake: Bool? = nil) {
@@ -57,6 +78,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.image = HaloDockBrand.image(color: enabled ? coral : nil)
         statusItem.button?.toolTip = closedLid.active ? "HaloDock · 合盖保持运行中" : enabled ? "HaloDock · 保持唤醒已开启" : "HaloDock · 保持唤醒已关闭"
         statusItem.button?.setAccessibilityLabel(enabled ? "HaloDock，保持唤醒已开启" : "HaloDock，保持唤醒已关闭")
+        updateWakeTitle(system.wakeRemaining)
+    }
+
+    private func updateWakeTitle(_ remaining: String) {
+        statusItem.button?.title = remaining.isEmpty ? "" : " " + remaining
+        statusItem.button?.imagePosition = remaining.isEmpty ? .imageOnly : .imageLeading
+        statusItem.button?.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        if !remaining.isEmpty {
+            statusItem.button?.toolTip = "HaloDock · 唤醒剩余 " + remaining
+            statusItem.button?.setAccessibilityLabel("HaloDock，唤醒剩余 " + remaining)
+        }
     }
 
     func showSettings() {
@@ -110,6 +142,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        GlobalShortcuts.shared.shutdown()
+        PinnedScreenshots.shared.closeAll()
         system.shutdown()
     }
 

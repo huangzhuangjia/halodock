@@ -71,6 +71,7 @@ final class ScreenshotCoordinator {
             window.isOpaque=true
             window.collectionBehavior=[.canJoinAllSpaces,.fullScreenAuxiliary]
             let selection=ScreenshotSelectionView(frame:CGRect(origin:.zero,size:screen.frame.size),image:image)
+            selection.onPin = { image, point in PinnedScreenshots.shared.show(image, at: point) }
             selection.onCancel={ [weak self] in self?.closeSelection() }
             window.contentView=selection
             overlays.append(window)
@@ -83,7 +84,10 @@ final class ScreenshotCoordinator {
         NSApp.activate(ignoringOtherApps:true)
     }
     private func closeSelection() {
-        for window in overlays {window.orderOut(nil);window.close()}
+        for window in overlays {
+            (window.contentView as? ScreenshotSelectionView)?.hideRecognition()
+            window.orderOut(nil);window.close()
+        }
         overlays.removeAll()
     }
     private func showPermissionHelp() {

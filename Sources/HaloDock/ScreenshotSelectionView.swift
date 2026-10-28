@@ -6,6 +6,11 @@ import Combine
 final class ScreenshotSelectionView: NSView, NSTextFieldDelegate {
     let image: CGImage
     var onCancel: (() -> Void)?
+    var onPin: ((CGImage, CGPoint) -> Bool)?
+    private var recognitionTask: Task<Void, Never>?
+    private let recognitionPanel = NSVisualEffectView()
+    private let recognizedText = NSTextView()
+    private let recognizeButton = NSButton()
     private(set) var selection: CGRect?
     private var document: ScreenshotDocument?
     private var pixelRect: CGRect?
@@ -45,7 +50,13 @@ final class ScreenshotSelectionView: NSView, NSTextFieldDelegate {
         actionBar.wantsLayer=true
         actionBar.layer?.cornerRadius=13
         actionBar.isHidden=true
-        stack.orientation = .horizontal
+        stack.orientation = .vertical
+        let tools = NSStackView()
+        let actions = NSStackView()
+        tools.orientation = .horizontal; tools.spacing = 6
+        actions.orientation = .horizontal; actions.spacing = 8
+        stack.addArrangedSubview(tools)
+        stack.addArrangedSubview(actions)
         stack.spacing=6
         stack.edgeInsets=NSEdgeInsets(top:8,left:10,bottom:8,right:10)
         let icons=["crop","pencil.tip","rectangle","arrow.up.right","textformat"]
@@ -55,7 +66,7 @@ final class ScreenshotSelectionView: NSView, NSTextFieldDelegate {
             button.tag=index
             button.setButtonType(.pushOnPushOff)
             toolButtons.append(button)
-            stack.addArrangedSubview(button)
+            tools.addArrangedSubview(button)
         }
         for index in palette.indices {
             let button=NSButton(title:"●",target:self,action:#selector(chooseColor(_:)))
@@ -66,28 +77,32 @@ final class ScreenshotSelectionView: NSView, NSTextFieldDelegate {
             button.toolTip=["红色","黄色","蓝色","白色"][index]
             button.setAccessibilityLabel(button.toolTip)
             button.widthAnchor.constraint(equalToConstant:25).isActive=true
-            stack.addArrangedSubview(button)
+            tools.addArrangedSubview(button)
         }
         stroke.target=self;stroke.action=#selector(changeStroke(_:));stroke.selectedSegment=1
         stroke.controlSize = .small
         stroke.toolTip="标注粗细"
         stroke.setAccessibilityLabel("标注粗细")
-        stack.addArrangedSubview(stroke)
+        tools.addArrangedSubview(stroke)
         configure(undoButton,icon:"arrow.uturn.backward",label:"撤销 ⌘Z",action:#selector(undoAnnotation))
         configure(redoButton,icon:"arrow.uturn.forward",label:"重做 ⇧⌘Z",action:#selector(redoAnnotation))
-        stack.addArrangedSubview(undoButton);stack.addArrangedSubview(redoButton)
+        actions.addArrangedSubview(undoButton);actions.addArrangedSubview(redoButton)
+        configure(recognizeButton, icon: "text.viewfinder", label: "提取文字（本机识别）", action: #selector(recognizeText))
+        actions.addArrangedSubview(recognizeButton)
+        actions.addArrangedSubview(iconButton("pin", label: "贴到桌面置顶", action: #selector(pinScreenshot)))
         for (title,action) in [("复制",#selector(copyScreenshot)),("保存",#selector(saveScreenshot))] {
             let button=NSButton(title:title,target:self,action:action)
             button.bezelStyle = .rounded
             button.controlSize = .regular
             button.font = .systemFont(ofSize:12,weight:.semibold)
-            stack.addArrangedSubview(button)
+            actions.addArrangedSubview(button)
         }
-        stack.addArrangedSubview(iconButton("xmark",label:"取消截图（Esc）",action:#selector(cancelCapture)))
+        actions.addArrangedSubview(iconButton("xmark",label:"取消截图（Esc）",action:#selector(cancelCapture)))
         actionBar.addSubview(stack)
         stack.translatesAutoresizingMaskIntoConstraints=false
         NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo:actionBar.leadingAnchor),stack.trailingAnchor.constraint(equalTo:actionBar.trailingAnchor),stack.topAnchor.constraint(equalTo:actionBar.topAnchor),stack.bottomAnchor.constraint(equalTo:actionBar.bottomAnchor)])
         addSubview(actionBar)
+        configureRecognitionPanel()
         updateToolbar()
     }
     private func iconButton(_ icon:String,label:String,action:Selector) -> NSButton {
@@ -153,6 +168,7 @@ final class ScreenshotSelectionView: NSView, NSTextFieldDelegate {
         (text as NSString).draw(at:point,withAttributes:attrs)
     }
     override func mouseDown(with event:NSEvent) {
+        hideRecognition()
         commitText()
         window?.makeFirstResponder(self)
         origin=convert(event.locationInWindow,from:nil)
@@ -221,7 +237,7 @@ final class ScreenshotSelectionView: NSView, NSTextFieldDelegate {
     }
     private func positionActionBar() {
         guard let selection else {return}
-        let size=stack.fittingSize,width=min(bounds.width-24,max(650,size.width)),height=max(46,size.height)
+        let size=stack.fittingSize,width=min(bounds.width-24,max(460,size.width)),height=max(46,size.height)
         let x=min(max(12,selection.midX-width/2),bounds.width-width-12)
         var y=selection.maxY+14
         if y+height>bounds.height-12 {y=max(12,selection.minY-height-14)}
@@ -276,9 +292,108 @@ final class ScreenshotSelectionView: NSView, NSTextFieldDelegate {
             if let status=document?.status,status.hasPrefix("保存失败") || status.hasPrefix("无法生成") {feedback=status;needsDisplay=true}
         }
     }
-    @objc private func cancelCapture() {textField?.removeFromSuperview();onCancel?()}
+    private func configureRecognitionPanel() {
+        recognitionPanel.material = .hudWindow
+        recognitionPanel.state = .active
+        recognitionPanel.appearance = NSAppearance(named: .darkAqua)
+        recognitionPanel.wantsLayer = true
+        recognitionPanel.layer?.cornerRadius = 12
+        recognitionPanel.isHidden = true
+        let scroll = NSScrollView()
+        scroll.hasVerticalScroller = true
+        scroll.drawsBackground = false
+        recognizedText.isEditable = true
+        recognizedText.isRichText = false
+        recognizedText.font = .systemFont(ofSize: 14)
+        recognizedText.textColor = .white
+        recognizedText.backgroundColor = .clear
+        recognizedText.drawsBackground = false
+        recognizedText.isVerticallyResizable = true
+        recognizedText.isHorizontallyResizable = false
+        recognizedText.minSize = CGSize(width: 0, height: 140)
+        recognizedText.maxSize = CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        recognizedText.textContainer?.containerSize = CGSize(width: 396, height: CGFloat.greatestFiniteMagnitude)
+        recognizedText.autoresizingMask = [.width]
+        recognizedText.textContainer?.widthTracksTextView = true
+        recognizedText.setAccessibilityLabel("识别结果，可选择、修改和复制文字")
+        scroll.documentView = recognizedText
+        let layout = NSStackView()
+        layout.orientation = .vertical; layout.alignment = .leading; layout.spacing = 8
+        let header = NSTextField(labelWithString: "提取文字 · 本机识别")
+        header.textColor = .white
+        let buttons = NSStackView()
+        buttons.addArrangedSubview(NSButton(title: "复制全部", target: self, action: #selector(copyRecognizedText)))
+        buttons.addArrangedSubview(NSButton(title: "收起", target: self, action: #selector(hideRecognition)))
+        layout.addArrangedSubview(header); layout.addArrangedSubview(scroll); layout.addArrangedSubview(buttons)
+        recognitionPanel.addSubview(layout)
+        layout.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            layout.leadingAnchor.constraint(equalTo: recognitionPanel.leadingAnchor, constant: 12),
+            layout.trailingAnchor.constraint(equalTo: recognitionPanel.trailingAnchor, constant: -12),
+            layout.topAnchor.constraint(equalTo: recognitionPanel.topAnchor, constant: 12),
+            layout.bottomAnchor.constraint(equalTo: recognitionPanel.bottomAnchor, constant: -12),
+            scroll.widthAnchor.constraint(equalTo: layout.widthAnchor),
+            scroll.heightAnchor.constraint(equalToConstant: 140)
+        ])
+        addSubview(recognitionPanel)
+    }
+    @objc private func recognizeText() {
+        commitText()
+        guard let document else { return }
+        recognitionTask?.cancel()
+        recognizeButton.isEnabled = false
+        feedback = "正在本机识别文字…"; needsDisplay = true
+        // OCR uses the selected source pixels, so arrows and notes cannot obscure text.
+        let selectedImage = document.image
+        recognitionTask = Task { @MainActor [weak self] in
+            do {
+                let text = try await ScreenshotTextRecognizer.recognize(selectedImage)
+                guard let self, !Task.isCancelled, self.document === document else { return }
+                self.recognizeButton.isEnabled = true
+                guard !text.isEmpty else { self.feedback = "未识别到文字，可调整选区后重试"; self.needsDisplay = true; return }
+                self.recognizedText.string = text
+                let width = min(420, self.bounds.width - 24)
+                let x = min(max(12, self.actionBar.frame.midX - width / 2), self.bounds.width - width - 12)
+                let y = self.actionBar.frame.minY > 250 ? self.actionBar.frame.minY - 246 : min(self.bounds.height - 244, self.actionBar.frame.maxY + 10)
+                self.recognitionPanel.frame = CGRect(x: x, y: max(12, y), width: width, height: 234)
+                self.recognitionPanel.isHidden = false
+                self.recognitionPanel.layoutSubtreeIfNeeded()
+                self.recognizedText.frame.size.width = width - 24
+                self.recognizedText.sizeToFit()
+                self.feedback = "识别完成，可直接选择或修改文字"; self.needsDisplay = true
+                self.window?.makeFirstResponder(self.recognizedText)
+            } catch {
+                guard let self, !Task.isCancelled else { return }
+                self.recognizeButton.isEnabled = true
+                self.feedback = "识别失败：" + error.localizedDescription; self.needsDisplay = true
+            }
+        }
+    }
+    @objc private func copyRecognizedText() {
+        let board = NSPasteboard.general
+        board.clearContents()
+        feedback = board.setString(recognizedText.string, forType: .string) ? "文字已复制" : "复制失败，请重试"
+        needsDisplay = true
+    }
+    @objc func hideRecognition() {
+        recognitionTask?.cancel(); recognitionTask = nil
+        recognizeButton.isEnabled = true
+        recognitionPanel.isHidden = true
+    }
+    @objc private func pinScreenshot() {
+        commitText()
+        guard let image = document?.renderedImage(), let selection, let window else { return }
+        let point = window.convertPoint(toScreen: CGPoint(x: selection.minX, y: bounds.height - selection.minY))
+        if onPin?(image, point) == true { hideRecognition(); onCancel?() }
+        else { feedback = "最多同时打开 8 张贴图，请先关闭一张"; needsDisplay = true }
+    }
+    @objc private func cancelCapture() {hideRecognition();textField?.removeFromSuperview();onCancel?()}
+    override func cancelOperation(_ sender: Any?) {
+        if !recognitionPanel.isHidden { hideRecognition(); window?.makeFirstResponder(self) }
+        else { cancelCapture() }
+    }
     override func keyDown(with event:NSEvent) {
-        if event.keyCode==53 {cancelCapture();return}
+        if event.keyCode==53 { if !recognitionPanel.isHidden { hideRecognition() } else { cancelCapture() };return}
         if event.keyCode==36 {copyScreenshot();return}
         let key=event.charactersIgnoringModifiers?.lowercased()
         if event.modifierFlags.contains(.command) {

@@ -8,6 +8,12 @@ struct HaloDockView: View {
     @ObservedObject var system: SystemState
     let emptyTrash: () -> Void
     let takeScreenshot: () -> Void
+    @ObservedObject private var shortcuts = GlobalShortcuts.shared
+    @AppStorage("showMacStatus") private var showMacStatus = true
+    @AppStorage("showQuickActions") private var showQuickActions = true
+    @AppStorage("quickActionOrder") private var quickActionOrder = ""
+    @AppStorage("hiddenQuickActions") private var hiddenQuickActions = ""
+    @AppStorage("wakeMinutes") private var wakeMinutes = 0
     @AppStorage("showStorage") private var showStorage = true
     @AppStorage("showRecentClipboard") private var showRecentClipboard = true
 
@@ -37,13 +43,17 @@ struct HaloDockView: View {
                 .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
                 .padding(.top, 10)
             }
-            statusSummary
-            Divider().padding(.vertical, 16)
-            quickActions
-            if showRecentClipboard {
-                Divider().padding(.vertical, 16)
-                clipboardSection
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if showMacStatus { statusSummary }
+                    if showQuickActions { quickActions }
+                    if showRecentClipboard {
+                        Divider()
+                        ClipboardHistoryView(history: system.history)
+                    }
+                }.padding(.top, showMacStatus ? 0 : 16)
             }
+            .frame(maxHeight: max(180, min(620, (NSScreen.main?.visibleFrame.height ?? 800) - 220)))
             footer
         }
         .padding(20)
@@ -115,18 +125,38 @@ struct HaloDockView: View {
 
     private var quickActions: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("快捷操作")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
+            Text("快捷操作").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+            ForEach(QuickAction.ordered(quickActionOrder).filter { !QuickAction.hidden(hiddenQuickActions).contains($0.rawValue) }) { action in
+                quickAction(action)
+                if action == .awake {
+                    Picker("唤醒时长", selection: Binding(get: { wakeMinutes }, set: { value in
+                        wakeMinutes = value
+                        if system.keepAwake { system.startWake(minutes: value) }
+                    })) {
+                        Text("持续唤醒").tag(0)
+                        Text("30 分钟").tag(30)
+                        Text("1 小时").tag(60)
+                        Text("2 小时").tag(120)
+                    }.controlSize(.small)
+                }
+            }
+            if closedLid.needsRestore {
+                Button("授权恢复睡眠") { closedLid.restoreWithAuthorization() }.buttonStyle(.borderedProminent).controlSize(.small)
+            }
+        }
+    }
 
+    @ViewBuilder private func quickAction(_ action: QuickAction) -> some View {
+        switch action {
+        case .awake:
             ActionRow(
                 title: "保持唤醒",
-                detail: closedLid.active ? "合盖后继续运行" : "让屏幕保持点亮",
+                detail: closedLid.active ? "合盖后继续运行" : system.wakeRemaining.isEmpty ? "让屏幕保持点亮" : "剩余 " + system.wakeRemaining,
                 symbol: "sun.max",
                 tint: .haloOrange,
                 trailing: AnyView(
                     Toggle("保持唤醒", isOn: Binding(get: { system.keepAwake || closedLid.active }, set: { enabled in
-                        if enabled { system.setKeepAwake(true) }
+                        if enabled { system.startWake(minutes: wakeMinutes) }
                         else { Task { if await closedLid.stop() { system.setKeepAwake(false) } } }
                     }))
                         .labelsHidden()
@@ -134,7 +164,7 @@ struct HaloDockView: View {
                         .controlSize(.small)
                 )
             )
-
+        case .closedLid:
             ActionRow(
                 title: "合盖保持运行",
                 detail: closedLid.active ? (closedLid.endsAt.map { "运行至 " + $0.formatted(date: .omitted, time: .shortened) } ?? "直到关闭或退出") : "首次授权 · 本次会话使用",
@@ -150,14 +180,10 @@ struct HaloDockView: View {
                     }
                 )
             )
-            if closedLid.needsRestore {
-                Button("授权恢复睡眠") { closedLid.restoreWithAuthorization() }
-                    .buttonStyle(.borderedProminent).controlSize(.small)
-            }
-
+        case .screenshot:
             ActionRow(
                 title: "截取屏幕",
-                detail: "选区后直接标注 · 复制或保存",
+                detail: "识字 · 贴图 · 标注" + (shortcuts.bindings[.screenshot].map { " · " + $0.display } ?? ""),
                 symbol: "rectangle.dashed.and.paperclip",
                 tint: .haloBlue,
                 trailing: AnyView(
@@ -165,7 +191,7 @@ struct HaloDockView: View {
                         .controlSize(.small)
                 )
             )
-
+        case .trash:
             ActionRow(
                 title: "清空废纸篓",
                 detail: "永久删除废纸篓内容，操作前会确认",
@@ -177,7 +203,7 @@ struct HaloDockView: View {
                         .help("确认后永久清空废纸篓")
                 )
             )
-
+        case .focus:
             ActionRow(
                 title: "专注模式",
                 detail: "打开系统专注模式设置",
@@ -192,46 +218,6 @@ struct HaloDockView: View {
                     .controlSize(.small)
                 )
             )
-        }
-    }
-
-    private var clipboardSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("最近复制")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-            if system.clipboard.isEmpty {
-                Text("暂无记录，复制文本或文件后会显示在这里")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            ForEach(system.clipboard.prefix(3)) { item in
-                Button {
-                    system.copy(item)
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: item.symbol)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(item.symbol == "doc" ? Color.haloBlue : Color.haloOrange)
-                            .frame(width: 20)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.title)
-                                .font(.callout.weight(.medium))
-                                .lineLimit(1)
-                                .foregroundStyle(.primary)
-                            Text(item.detail)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.tertiary)
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
         }
     }
 
@@ -315,10 +301,4 @@ private struct StatusMetric: View {
         .padding(9)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.72), in: RoundedRectangle(cornerRadius: 9))
     }
-}
-
-private extension Color {
-    static let haloOrange = Color(red: 0.95, green: 0.33, blue: 0.20)
-    static let haloGreen = Color(red: 0.12, green: 0.58, blue: 0.38)
-    static let haloBlue = Color(red: 0.18, green: 0.40, blue: 0.85)
 }
