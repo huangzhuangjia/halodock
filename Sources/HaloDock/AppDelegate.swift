@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let application = NSApplication.shared
         application.setActivationPolicy(.accessory)
+        LoginItemState.shared.configureOnLaunch()
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.image = HaloDockBrand.image()
@@ -23,7 +24,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.animates = true
         popover.contentViewController = NSHostingController(rootView: HaloDockView(openSettings: { [weak self] in
             self?.showSettings()
-        }, system: system, takeScreenshot: { [weak self] in
+        }, system: system, emptyTrash: { [weak self] in
+            self?.confirmEmptyTrash()
+        }, takeScreenshot: { [weak self] in
             self?.popover.performClose(nil)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 self?.system.takeScreenshot()
@@ -45,6 +48,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWindow?.deminiaturize(nil)
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        system.shutdown()
+    }
+
+    private func confirmEmptyTrash() {
+        popover.performClose(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "确定清空废纸篓？"
+        alert.informativeText = "废纸篓里的项目将被永久删除，无法撤销。"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "取消")
+        alert.addButton(withTitle: "清空废纸篓")
+        guard alert.runModal() == .alertSecondButtonReturn else { return }
+        // Ask Finder to handle all mounted volumes and its usual permission rules.
+        let script = NSAppleScript(source: "tell application \"Finder\" to empty trash")
+        var error: NSDictionary?
+        script?.executeAndReturnError(&error)
+        if let error {
+            let message = error[NSAppleScript.errorMessage] as? String ?? "无法清空废纸篓"
+            let failure = NSAlert()
+            failure.messageText = "清空未完成"
+            failure.informativeText = message
+            failure.addButton(withTitle: "好")
+            failure.runModal()
+        } else {
+            system.refresh()
+        }
     }
 
     @objc private func togglePopover(_ sender: Any?) {

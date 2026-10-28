@@ -22,6 +22,7 @@ final class SystemState: ObservableObject {
     @Published private(set) var clipboard: [ClipboardItem] = []
     @Published private(set) var keepAwake = false
     @Published var actionError: String?
+    private let defaults: UserDefaults
     private var assertion: IOPMAssertionID = 0
     private let pasteboard: NSPasteboard
     private var changeCount: Int
@@ -29,7 +30,8 @@ final class SystemState: ObservableObject {
     private let hostPort = mach_host_self()
     private var polling: Task<Void, Never>?
 
-    init(pasteboard: NSPasteboard = .general) {
+    init(pasteboard: NSPasteboard = .general, defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         self.pasteboard = pasteboard
         self.changeCount = pasteboard.changeCount
         monitor.pathUpdateHandler = { [weak self] path in
@@ -40,6 +42,9 @@ final class SystemState: ObservableObject {
         }
         monitor.start(queue: DispatchQueue(label: "HaloDock.network"))
         refresh()
+        if defaults.bool(forKey: "keepAwake") {
+            setKeepAwake(true)
+        }
         polling = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
@@ -113,8 +118,19 @@ final class SystemState: ObservableObject {
             let result = IOPMAssertionCreateWithName(kIOPMAssertionTypeNoDisplaySleep as CFString, IOPMAssertionLevel(kIOPMAssertionLevelOn), "HaloDock 保持唤醒" as CFString, &assertion)
             guard result == kIOReturnSuccess else { actionError = "无法开启保持唤醒"; return }
             keepAwake = true
+            defaults.set(true, forKey: "keepAwake")
         } else if !enabled && keepAwake {
             guard IOPMAssertionRelease(assertion) == kIOReturnSuccess else { actionError = "无法关闭保持唤醒"; return }
+            keepAwake = false
+            defaults.set(false, forKey: "keepAwake")
+        }
+    }
+
+    func shutdown() {
+        polling?.cancel()
+        monitor.cancel()
+        if keepAwake {
+            IOPMAssertionRelease(assertion)
             keepAwake = false
         }
     }

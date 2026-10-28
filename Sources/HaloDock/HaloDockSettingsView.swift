@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct HaloDockSettingsView: View {
+    @ObservedObject private var login = LoginItemState.shared
     @AppStorage("showStorage") private var showStorage = true
     @AppStorage("showRecentClipboard") private var showRecentClipboard = true
     @AppStorage("appearance") private var appearance = "system"
@@ -14,6 +15,22 @@ struct HaloDockSettingsView: View {
                     Text("HaloDock").font(.title2.bold())
                 }
                 Text("菜单栏里的轻量工具箱")
+                    .foregroundStyle(.secondary)
+            }
+            Section("启动与运行") {
+                Toggle("登录 Mac 时启动 HaloDock", isOn: Binding(
+                    get: { login.requested },
+                    set: { enabled in Task { await login.setEnabled(enabled) } }
+                ))
+                .disabled(login.isChanging)
+                Text(login.message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("系统登录项设置") { login.openSystemSettings() }
+                    .controlSize(.small)
+                Text("保持唤醒会记住上次选择，并在下次启动时恢复。")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Section("外观") {
@@ -44,8 +61,12 @@ struct HaloDockSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 520)
+        .frame(width: 460, height: 620)
         .navigationTitle("HaloDock 设置")
         .modifier(HaloDockTheme())
+        .onAppear { login.refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            login.refresh()
+        }
     }
 }

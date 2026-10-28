@@ -3,6 +3,7 @@ import SwiftUI
 struct HaloDockView: View {
     let openSettings: () -> Void
     @ObservedObject var system: SystemState
+    let emptyTrash: () -> Void
     let takeScreenshot: () -> Void
     @AppStorage("showStorage") private var showStorage = true
     @AppStorage("showRecentClipboard") private var showRecentClipboard = true
@@ -117,6 +118,18 @@ struct HaloDockView: View {
             )
 
             ActionRow(
+                title: "清空废纸篓",
+                detail: "永久删除废纸篓内容，操作前会确认",
+                symbol: "trash",
+                tint: .haloOrange,
+                trailing: AnyView(
+                    Button("清空", action: emptyTrash)
+                        .controlSize(.small)
+                        .help("确认后永久清空废纸篓")
+                )
+            )
+
+            ActionRow(
                 title: "专注模式",
                 detail: "打开系统专注模式设置",
                 symbol: "moon",
@@ -174,16 +187,28 @@ struct HaloDockView: View {
     }
 
     private var footer: some View {
-        HStack {
-            Button("打开设置", action: openSettings)
-                .buttonStyle(.link)
-                .font(.caption)
-            Spacer()
-            Button("退出") { NSApp.terminate(nil) }
-                .buttonStyle(.link)
-                .font(.caption)
+        HStack(spacing: 10) {
+            Button(action: openSettings) {
+                Label("打开设置", systemImage: "gearshape")
+                    .font(.callout.weight(.medium))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 3)
+            }
+            .buttonStyle(.borderedProminent)
+            .help("打开 HaloDock 设置")
+
+            Button { NSApp.terminate(nil) } label: {
+                Label("退出", systemImage: "power")
+                    .font(.callout.weight(.medium))
+                    .padding(.vertical, 3)
+            }
+            .buttonStyle(.bordered)
+            .help("退出 HaloDock；下次启动恢复保持唤醒的选择")
         }
-        .padding(.top, 20)
+        .controlSize(.large)
+        .padding(10)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+        .padding(.top, 18)
     }
 
 }
