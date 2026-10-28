@@ -9,5 +9,11 @@ struct HaloDockApp: App {
         Settings {
             HaloDockSettingsView()
         }
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("设置…") { appDelegate.showSettings() }
+                    .keyboardShortcut(",", modifiers: .command)
+            }
+        }
     }
 }

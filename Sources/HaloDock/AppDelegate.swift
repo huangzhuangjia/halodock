@@ -61,15 +61,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func showSettings() {
         popover.performClose(nil)
+        // SwiftUI can create its Settings scene before a menu-bar action arrives.
+        // Adopt that window so update progress and every settings entry reuse it.
+        if settingsWindow == nil {
+            settingsWindow = NSApp.windows.first {
+                $0.identifier?.rawValue == "com_apple_SwiftUI_Settings_window" ||
+                $0.identifier?.rawValue == "HaloDockSettings"
+            }
+        }
         if settingsWindow == nil {
             let controller = NSHostingController(rootView: HaloDockSettingsView())
             let window = NSWindow(contentViewController: controller)
+            window.identifier = NSUserInterfaceItemIdentifier("HaloDockSettings")
             window.title = "HaloDock 设置"
             window.styleMask = [.titled, .closable, .miniaturizable]
-            window.isReleasedWhenClosed = false
             window.center()
             settingsWindow = window
         }
+        settingsWindow?.isReleasedWhenClosed = false
         settingsWindow?.deminiaturize(nil)
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
