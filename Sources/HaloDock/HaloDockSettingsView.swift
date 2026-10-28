@@ -10,6 +10,22 @@ struct HaloDockSettingsView: View {
     @AppStorage("accent") private var accent = "coral"
 
     var body: some View {
+        VStack(spacing: 0) {
+            if updates.isDownloading {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Label("正在更新 HaloDock", systemImage: "arrow.down.circle")
+                            .font(.headline)
+                        Spacer()
+                        Text("\(Int(updates.progress * 100))%")
+                            .font(.callout.monospacedDigit())
+                    }
+                    ProgressView(value: updates.progress)
+                    Text(updates.message).font(.caption).foregroundStyle(.secondary)
+                }
+                .padding(16)
+                Divider()
+            }
         Form {
             Section {
                 HStack(spacing: 12) {
@@ -26,13 +42,13 @@ struct HaloDockSettingsView: View {
                     Button(updates.isChecking ? "正在检查…" : "检查更新") {
                         Task { await updates.check(interactive: true) }
                     }
-                    .disabled(updates.isChecking || updates.isDownloading)
+                    .disabled(updates.isChecking || updates.isDownloading || updates.hasPreparedUpdate)
                     if updates.isChecking || updates.isDownloading {
                         ProgressView().controlSize(.small)
                     }
                     Spacer()
-                    if updates.availableRelease != nil {
-                        Button(updates.isDownloading ? "正在下载…" : "下载安装") {
+                    if updates.availableRelease != nil || updates.hasPreparedUpdate {
+                        Button(updates.isDownloading ? "正在更新…" : updates.hasPreparedUpdate ? "重启更新" : "立即更新") {
                             Task { await updates.downloadInstaller() }
                         }
                         .disabled(updates.isDownloading)
@@ -104,6 +120,7 @@ struct HaloDockSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        }
         .frame(width: 460, height: 620)
         .navigationTitle("HaloDock 设置")
         .modifier(HaloDockTheme())

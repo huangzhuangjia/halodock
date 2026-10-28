@@ -6,6 +6,7 @@ import ImageIO
 final class ScreenshotCoordinator {
     private var overlays: [NSWindow] = []
     private var capturing=false
+    var hasActiveSession: Bool { capturing || !overlays.isEmpty }
 
     func start() {
         guard !capturing && overlays.isEmpty else {return}

@@ -12,15 +12,28 @@ struct HaloDockView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-            if let release = updates.availableRelease {
+            if updates.availableRelease != nil || updates.hasPreparedUpdate {
                 Button(action: openSettings) {
-                    Label("发现 \(release.tag_name)，前往下载安装", systemImage: "arrow.down.circle")
+                    Label(updates.hasPreparedUpdate ? "更新已准备好，点击重启更新" : "发现 \(updates.availableRelease?.tag_name ?? "新版本")，前往更新", systemImage: "arrow.down.circle")
                         .font(.callout.weight(.medium))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(10)
                 }
                 .buttonStyle(.bordered)
                 .padding(.top, 14)
+            }
+            if updates.isDownloading {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(updates.message).lineLimit(2)
+                        Spacer()
+                        Text("\(Int(updates.progress * 100))%")
+                    }.font(.caption)
+                    ProgressView(value: updates.progress)
+                }
+                .padding(12)
+                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+                .padding(.top, 10)
             }
             statusSummary
             Divider().padding(.vertical, 16)

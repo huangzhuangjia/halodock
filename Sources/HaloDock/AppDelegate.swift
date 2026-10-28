@@ -15,6 +15,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let application = NSApplication.shared
         application.setActivationPolicy(.accessory)
         LoginItemState.shared.configureOnLaunch()
+        UpdateManager.shared.revealProgress = { [weak self] in self?.showSettings() }
+        UpdateManager.shared.canRestart = { [weak self] in self?.screenshots.hasActiveSession != true }
         UpdateManager.shared.startAutomaticChecks()
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -38,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.screenshots.start()
             }
         }))
+        if UpdateManager.shared.shouldShowUpdateResult { showSettings() }
     }
 
     private func updateStatusIcon(keepAwake: Bool? = nil) {
