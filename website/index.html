@@ -4,13 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="HaloDock，菜单栏里的轻量 Mac 工具箱。实时系统状态、剪贴板历史、保持唤醒和截图，常用小事一键完成。">
-  <meta name="halodock-release" content="v0.1.4">
+  <meta name="halodock-release" content="v0.4.0">
   <meta name="theme-color" content="#faf8f3">
   <meta property="og:title" content="HaloDock — 小事交给它。">
   <meta property="og:description" content="状态、复制、截图、保持唤醒。让 Mac 的日常小事顺手一点。">
   <meta property="og:image" content="https://huangzhuangjia.github.io/halodock/assets/logo.png">
   <link rel="icon" href="./assets/logo.png" type="image/png">
   <link rel="stylesheet" href="./style.css?v=0.4.0">
+  <link rel="stylesheet" href="./landing.css?v=0.4.0-2">
   <title>HaloDock — 小事交给它。</title>
 </head>
 <body>
@@ -19,46 +20,65 @@
   <nav class="nav shell" aria-label="主导航">
     <a href="#" class="wordmark" aria-label="HaloDock 首页"><img src="./assets/logo.png" width="34" height="34" alt=""><span>HaloDock<span class="wordmark-dot">.</span></span></a>
     <div class="nav-links"><a href="#features">功能</a><a href="#inside">界面</a><a href="#faq">常见问题</a><a class="github-link" href="https://github.com/huangzhuangjia/halodock" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a></div>
-    <a class="button nav-download download-link" href="https://github.com/huangzhuangjia/halodock/releases/download/v0.1.4/HaloDock-0.1.4-macos-arm64.dmg">下载 HaloDock <span aria-hidden="true">↓</span></a>
+    <a class="button nav-download download-link" href="https://github.com/huangzhuangjia/halodock/releases/download/v0.4.0/HaloDock-0.4.0-macos-arm64.dmg">下载 HaloDock <span aria-hidden="true">↓</span></a>
   </nav>
 </header>
 <main id="main">
-  <section class="hero-v2 shell">
-    <div class="hero-v2-copy">
-      <p class="eyebrow"><span class="status-dot"></span> MEET YOUR LITTLE MAC SIDEKICK</p>
-      <h1>少一点折腾。<br><span>多一点顺手。</span></h1>
-      <p class="hero-v2-description">Mac 的日常小事，有个小伙伴帮你接住。<br>状态、复制、截图、保持唤醒——<br>都收进菜单栏，不占你的桌面。</p>
-      <div class="hero-actions"><a class="button primary download-link" href="https://github.com/huangzhuangjia/halodock/releases/download/v0.1.4/HaloDock-0.1.4-macos-arm64.dmg"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5"/></svg>下载 HaloDock</a><a class="text-link" href="#inside">看看它怎么用 <span aria-hidden="true">↗</span></a></div>
-      <p class="download-meta"><span id="release-version">v0.1.4</span><span>·</span>Apple Silicon<span>·</span>macOS 13+</p>
-      <div class="hero-v2-proof"><span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4 10 4 4 8-8"/></svg>原生 Mac 应用</span><span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4 10 4 4 8-8"/></svg>数据留在本机</span></div>
+  <section class="launch-hero" aria-labelledby="launch-title">
+    <div class="launch-intro shell">
+      <p class="launch-eyebrow"><img src="./assets/logo.png" width="24" height="24" alt="">HALODOCK · 为 Mac 的日常而生</p>
+      <h1 id="launch-title">你的 Mac，<br><span>还可以更顺手。</span></h1>
+      <p class="launch-description">截图、收集、找回刚才复制的内容。<br>常用工具留在菜单栏，思路留在手头的事。</p>
+      <div class="launch-actions"><a class="button primary download-link" href="https://github.com/huangzhuangjia/halodock/releases/download/v0.4.0/HaloDock-0.4.0-macos-arm64.dmg">下载 HaloDock <span aria-hidden="true">↓</span></a><a class="launch-secondary" href="#features">滚动，看看它能做什么 <span aria-hidden="true">↓</span></a></div>
+      <p class="download-meta"><span id="release-version">v0.4.0</span><span>·</span>Apple Silicon<span>·</span>macOS 13+</p>
     </div>
-    <div class="product-stage">
-      <div class="stage-heading"><span class="stage-led"></span>HALODOCK / YOUR MAC, AT A GLANCE<div class="stage-theme" role="group" aria-label="预览 App 外观"><button type="button" data-preview-theme="light" aria-pressed="true">浅色</button><button type="button" data-preview-theme="dark" aria-pressed="false">深色</button></div></div>
-      <div class="stage-arches" aria-hidden="true"></div>
-      <figure class="stage-app">
-        <div class="stage-app-bar"><span></span><span></span><span></span><b>HaloDock</b></div>
-        <img src="./assets/panel.png" width="780" height="1654" alt="HaloDock 实际界面：系统状态、唤醒倒计时、截图和剪贴板工具">
-      </figure>
-      <div class="mascot-sticker"><span class="mascot-speech">我在，随时。</span><img src="./assets/logo.png" width="130" height="130" alt="歪头屏，HaloDock 的小伙伴"></div>
-      <div class="stage-caption"><span>01 — 实际 App 界面</span><span>小小入口，大大顺手。</span></div>
+    <div class="launch-product shell" data-reveal>
+      <div class="product-canvas">
+        <div class="canvas-menubar" aria-hidden="true"><span>Finder</span><span>文件</span><span>编辑</span><span class="canvas-menubar-end"><img src="./assets/logo.png" width="20" height="20" alt="">HaloDock</span></div>
+        <button class="product-window hero-workbench image-button" data-image-preview data-title="工作台 · 按任务收集和复用" aria-label="放大查看 HaloDock 工作台">
+          <span class="window-chrome"><i></i><i></i><i></i><span>工作台</span><b aria-hidden="true">↗</b></span>
+          <span class="shot-viewport"><img src="./assets/workbench.png" width="1720" height="1240" alt="HaloDock 工作台：按任务整理截图和文字"></span>
+        </button>
+        <button class="product-window hero-panel image-button" data-image-preview data-title="菜单栏面板 · 常用工具随手可用" aria-label="放大查看 HaloDock 菜单栏面板">
+          <span class="window-chrome"><i></i><i></i><i></i><span>菜单栏面板</span><b aria-hidden="true">↗</b></span>
+          <span class="shot-viewport"><img src="./assets/panel.png" width="780" height="1654" alt="HaloDock 菜单栏实际界面"></span>
+        </button>
+        <div class="canvas-bottom"><span>真实 App 界面 · 点击可放大</span><span>原生体验，数据留在本机。</span></div>
+      </div>
     </div>
   </section>
 
-  <section class="principle-bar" aria-label="产品特点"><div class="shell"><p>不必再为每件小事，<br class="mobile-only">打开一个大应用。</p><div><span>原生 SwiftUI</span><span>本机数据</span><span>一个入口</span></div></div></section>
-
-  <section class="section shell" id="features">
-    <div class="section-head"><p class="eyebrow">SMALL TOOLS, LESS FRICTION</p><h2>小工具，<span class="serif">大顺手。</span></h2><p>功能不用铺满桌面，放在你伸手就到的地方。</p></div>
-    <div class="feature-grid">
-      <article class="feature"><span class="feature-number">01 / 状态</span><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="7" width="36" height="27" rx="5"/><path d="M18 41h12m-6-7v7M13 25l6-8 7 7 8-10"/></svg><h3>Mac 最近怎么样？</h3><p>场景面板按任务切换，小、中、大组件自由组合。内存与硬盘进度条，读自本机，每 2 秒更新。</p><span class="feature-tag">把状态变得直观</span></article>
-      <article class="feature"><span class="feature-number">02 / 复制</span><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="15" y="15" width="26" height="27" rx="5"/><path d="M31 8H12a5 5 0 0 0-5 5v18m15-7h12m-12 7h8"/></svg><h3>刚才那段，还在。</h3><p>找回文字、图片和文件，最多 50 条。固定常用内容，设置自动清理，点击即可重新复制。</p><span class="feature-tag">少一次来回切换</span></article>
-      <article class="feature"><span class="feature-number">03 / 唤醒</span><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="9"/><path d="M24 3v6m0 30v6M3 24h6m30 0h6M9 9l4 4m22 22 4 4M9 39l4-4m22-22 4-4"/></svg><h3>屏幕，先别睡。</h3><p>唤醒 30 分钟、1 小时或持续开启，菜单栏显示剩余时间。也可授权开启合盖运行会话。</p><span class="feature-tag">一个开关就好</span></article>
-      <article class="feature"><span class="feature-number">04 / 操作</span><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 19V8h11m10 0h11v11M8 29v11h11m10 0h11V29M17 24h14m-7-7v14"/></svg><h3>小操作，别绕路。</h3><p>截图行动卡、滚动拼接、选区 GIF，把文字和截图收进工作台；文档原地预览，常用片段随手复制。</p><span class="feature-tag">做完，回到手头的事</span></article>
+  <section id="features" class="feature-story" aria-labelledby="story-heading">
+    <div class="story-heading shell" data-reveal><p class="launch-eyebrow">从一个入口，顺着做下去。</p><h2 id="story-heading">工具跟上思路。<br><span>不必打断手头的事。</span></h2></div>
+    <div class="story-track" data-story>
+      <div class="story-sticky shell">
+        <div class="story-copy">
+          <div class="story-pages">
+            <article class="story-page is-active" data-story-page="0"><span class="story-number">01 / 一眼掌握</span><h3>Mac 的状态，<br>心里有数。</h3><p>电池、内存和硬盘余量，打开就能看到。切换日常、工作、会议、下载场景，让常用工具按任务就位。</p><span class="story-note">场景面板 · 真实系统状态</span></article>
+            <article class="story-page" data-story-page="1"><span class="story-number">02 / 顺手处理</span><h3>截下来。<br>接着就能做。</h3><p>选好范围，原地标注、识字或贴到桌面。想留下整段内容？滚动截图和 GIF，也在同一条工具栏里。</p><span class="story-note">截图行动卡 · 本机识字</span></article>
+            <article class="story-page" data-story-page="2"><span class="story-number">03 / 放在一起</span><h3>围绕一件事，<br>收在一个地方。</h3><p>把截图、文字和文件收进同一个工作台。选择目标再保存，常用回复还能变成随时复制的文本片段。</p><span class="story-note">工作台 · 快捷文本片段</span></article>
+            <article class="story-page" data-story-page="3"><span class="story-number">04 / 接着阅读</span><h3>资料在眼前。<br>思路连起来。</h3><p>Markdown 直接看排版，代码可看源码，PDF 原地阅读。需要的时候再导出、复制，继续手头的工作。</p><span class="story-note">文档预览 · Markdown 导出</span></article>
+          </div>
+          <div class="story-controls" role="group" aria-label="功能介绍章节">
+            <button type="button" data-story-jump="0" aria-label="查看状态面板" aria-pressed="true"><span></span>状态</button>
+            <button type="button" data-story-jump="1" aria-label="查看截图功能" aria-pressed="false"><span></span>截图</button>
+            <button type="button" data-story-jump="2" aria-label="查看工作台" aria-pressed="false"><span></span>收集</button>
+            <button type="button" data-story-jump="3" aria-label="查看文档预览" aria-pressed="false"><span></span>阅读</button>
+          </div>
+        </div>
+        <div class="story-visuals" aria-live="off">
+          <figure class="story-visual is-active story-status" data-story-visual="0"><div class="story-status-well"><button class="image-button" data-image-preview data-title="状态面板" aria-label="放大查看状态面板"><img src="./assets/panel.png" width="780" height="1654" alt="状态面板中的内存和硬盘进度条"></button></div><figcaption>数据来自本机，每 2 秒更新。</figcaption></figure>
+          <figure class="story-visual story-capture" data-story-visual="1"><button class="image-button" data-image-preview data-title="截图行动卡" aria-label="放大查看截图行动卡"><img src="./assets/screenshot-actions.png" width="2400" height="1600" alt="选区内识字、标注、滚动截图和 GIF 入口"></button><figcaption>选区内继续操作，无需进入第二个编辑页面。</figcaption></figure>
+          <figure class="story-visual story-workbench" data-story-visual="2"><button class="image-button" data-image-preview data-title="工作台" aria-label="放大查看工作台"><img src="./assets/workbench.png" width="1720" height="1240" alt="工作台里的截图、文字与发布资料"></button><figcaption>围绕任务整理，重启之后还在。</figcaption></figure>
+          <figure class="story-visual story-markdown" data-story-visual="3"><button class="image-button" data-image-preview data-title="Markdown 文档预览" aria-label="放大查看 Markdown 文档预览"><img src="./assets/markdown.png" width="1720" height="1240" alt="Markdown 文件的标题、列表、代码块和表格预览"></button><figcaption>本机预览，支持排版与源码切换。</figcaption></figure>
+        </div>
+      </div>
     </div>
   </section>
 
   <section class="inside section" id="inside"><div class="shell inside-grid">
-    <div class="settings-scene"><img src="./assets/settings.png" width="1600" height="1240" loading="lazy" alt="HaloDock 设置：左侧分类导航，右侧切换对应内容"><div class="scene-caption">实际设置界面 · 分类切换，快速找到选项</div></div>
-    <div class="inside-copy"><p class="eyebrow">FEELS AT HOME ON YOUR MAC</p><h2>熟悉的 Mac。<br><span class="serif">有个性的小伙伴。</span></h2><p>歪着头，眨一下眼。HaloDock 用同一个小屏幕形象，陪在菜单栏、面板和设置页。</p><div class="detail-list"><div><span>01</span><p><strong>外观跟着你走</strong>跟随系统，也能单独选择浅色或深色；珊瑚橙、蓝色、绿色三种强调色。</p></div><div><span>02</span><p><strong>开启 Mac，它就到位</strong>开机启动默认开启。安装到“应用程序”后注册，也可以在设置里关闭。</p></div><div><span>03</span><p><strong>简单说明，明确控制</strong>系统指标来自本机。截图识字、剪贴板均在本机处理；普通记录退出清空，只有你固定的内容会保留。</p></div></div><a class="text-link" href="https://github.com/huangzhuangjia/halodock" target="_blank" rel="noopener">代码也可以打开看看 <span aria-hidden="true">↗</span></a></div>
+    <figure class="settings-scene" data-reveal><button class="image-button settings-enlarge" data-image-preview data-title="HaloDock 设置 · 分类导航" aria-label="放大查看 HaloDock 设置界面"><img src="./assets/settings.png" width="1600" height="1240" loading="lazy" alt="HaloDock 设置：左侧分类导航，右侧对应选项"><span class="enlarge-hint">查看大图 <span aria-hidden="true">↗</span></span></button><figcaption class="scene-caption">实际设置界面 · 点击查看清晰大图</figcaption></figure>
+    <div class="inside-copy" data-reveal><p class="launch-eyebrow">熟悉的 Mac 体验</p><h2>按你的习惯。<br><span>用自己的方式。</span></h2><p>跟随系统的外观，分门别类的设置。常用的留下，偶尔用的收好。</p><div class="detail-list"><div><span>01</span><p><strong>一眼找到设置</strong>左侧分类，右侧调整。快捷键、场景、权限各有位置。</p></div><div><span>02</span><p><strong>面板由你决定</strong>组件有小、中、大三种尺寸，工具可以排序、隐藏。</p></div><div><span>03</span><p><strong>陪你使用，也尊重边界</strong>截图与识字在本机处理，工作台资料也保存在本机。</p></div></div><a class="text-link" href="https://github.com/huangzhuangjia/halodock" target="_blank" rel="noopener">查看开源代码 <span aria-hidden="true">↗</span></a></div>
   </div></section>
 
   <section class="section shell" id="workbench">
@@ -77,9 +97,14 @@
     <details><summary>如何更新和反馈问题？<span aria-hidden="true">+</span></summary><p>从 GitHub Releases 下载新版 DMG，退出旧版后替换安装。App 内“设置 → 软件更新”提供更新入口（v0.1.4 起）；v0.1.6 起支持 App 内显示进度并自动替换，完成后短暂重启。旧版首次升级到 v0.1.6 仍需手动安装。遇到问题可从 App“设置 → 问题反馈”整理草稿，或前往 <a href="https://github.com/huangzhuangjia/halodock/issues" target="_blank" rel="noopener">GitHub Issues</a>，附上 macOS、App 版本和复现步骤，截图前隐藏私人内容。</p></details>
   </div></section>
 
-  <section class="download-section"><div class="shell download-inner"><img src="./assets/logo.png" width="88" height="88" loading="lazy" alt="歪头屏小伙伴"><h2>给日常小事，<br class="mobile-only">一个顺手的入口。</h2><a class="button primary download-link" href="https://github.com/huangzhuangjia/halodock/releases/download/v0.1.4/HaloDock-0.1.4-macos-arm64.dmg">带 HaloDock 回到菜单栏 <span aria-hidden="true">↓</span></a><p>Apple Silicon · macOS 13+ · 开源可查看</p></div></section>
+  <section class="download-section"><div class="shell download-inner"><img src="./assets/logo.png" width="88" height="88" loading="lazy" alt="歪头屏小伙伴"><h2>给日常小事，<br class="mobile-only">一个顺手的入口。</h2><a class="button primary download-link" href="https://github.com/huangzhuangjia/halodock/releases/download/v0.4.0/HaloDock-0.4.0-macos-arm64.dmg">带 HaloDock 回到菜单栏 <span aria-hidden="true">↓</span></a><p>Apple Silicon · macOS 13+ · 开源可查看</p></div></section>
 </main>
 <footer class="footer shell"><a class="wordmark" href="#"><img src="./assets/logo.png" width="28" height="28" alt=""><span>HaloDock.</span></a><p>为 Mac 的日常小事而做。</p><div><a href="https://github.com/huangzhuangjia/halodock" target="_blank" rel="noopener">GitHub ↗</a><a href="https://github.com/huangzhuangjia/halodock/releases/latest">更新记录</a></div></footer>
-<script src="./app.js?v=0.1.4-2" defer></script>
+<script src="./app.js?v=0.4.0-2" defer></script>
+<dialog class="image-preview" id="image-preview" aria-labelledby="image-preview-title">
+  <div class="image-preview-toolbar"><h2 id="image-preview-title">界面预览</h2><div><button type="button" id="preview-size" aria-pressed="false">原始尺寸</button><button type="button" id="preview-close" aria-label="关闭大图">关闭 <span aria-hidden="true">×</span></button></div></div>
+  <div class="image-preview-body"><img id="preview-image" alt=""></div>
+</dialog>
+<script src="./landing.js?v=0.4.0-2" defer></script>
 </body>
 </html>

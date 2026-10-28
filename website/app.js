@@ -29,17 +29,3 @@
   syncNavigation();
   window.addEventListener('scroll', syncNavigation, {passive:true});
 })();
-
-// Preview real light/dark screenshots without changing the visitor's system theme.
-(() => {
-  const stage = document.querySelector('.product-stage');
-  const preview = stage.querySelector('.stage-app > img');
-  const buttons = stage.querySelectorAll('[data-preview-theme]');
-  buttons.forEach(button => button.addEventListener('click', () => {
-    const dark = button.dataset.previewTheme === 'dark';
-    preview.src = dark ? './assets/panel-dark.png' : './assets/panel.png';
-    preview.alt = `HaloDock ${dark ? '深色' : '浅色'}实际界面：系统状态与快捷操作`;
-    stage.classList.toggle('preview-dark', dark);
-    buttons.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
-  }));
-})();
