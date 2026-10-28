@@ -24,3 +24,16 @@ open .build/HaloDock.app
 ```
 
 最低 macOS 13，当前构建产物为本机开发版本。
+
+## DMG 安装包
+
+```sh
+./Scripts/build-dmg.sh
+```
+
+产物在 `dist/HaloDock-<版本>-macos-<架构>.dmg`，附带 SHA-256 校验文件。
+打开 DMG，将 HaloDock.app 拖到 Applications；更新前先退出旧版，再替换应用。
+图标由共享的“歪头屏”矢量生成。当前为 ad-hoc 签名，未进行 Developer ID 签名及 Apple 公证。
+
+GitHub Releases 保存每版 DMG 和更新说明，Git 标签（如 `v0.1.0`）对应同版源码。
+`dist/` 不纳入 Git 提交；二进制安装包作为 Release 附件管理。
