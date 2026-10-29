@@ -7,6 +7,10 @@ import Network
 @MainActor
 final class SystemState: ObservableObject {
     @Published private(set) var battery = "读取中…"
+    @Published private(set) var cpu = "读取中…"
+    @Published private(set) var cpuFraction: Double?
+    @Published private(set) var memoryPressure: MemoryPressureLevel?
+    private var previousCPU: CPUSample?
     @Published private(set) var memory = "读取中…"
     @Published private(set) var network = "检测中…"
     @Published private(set) var storage = "读取中…"
@@ -51,6 +55,13 @@ final class SystemState: ObservableObject {
     }
 
     func refresh() {
+        if let sample = CPUSample.read(host: hostPort) {
+            cpuFraction = previousCPU.flatMap { sample.usage(since: $0) }
+            cpu = cpuFraction.map { "\(Int(($0 * 100).rounded()))%" } ?? "采样中…"
+            previousCPU = sample
+        } else { cpuFraction = nil; cpu = "暂不可用" }
+        memoryPressure = MemoryPressureLevel.read()
+
         if let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
            let sources = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() as? [CFTypeRef] {
             battery = "无电池"

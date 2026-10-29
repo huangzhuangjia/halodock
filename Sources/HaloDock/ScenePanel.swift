@@ -7,10 +7,10 @@ enum WidgetSize: String, Codable, CaseIterable, Identifiable {
     var title: String { switch self { case .small: "小"; case .medium: "中"; case .large: "大" } }
 }
 enum StatusWidget: String, Codable, CaseIterable, Identifiable {
-    case battery, memory, network, storage
+    case cpu, pressure, storage, wake, battery, memory, network
     var id: String { rawValue }
-    var title: String { switch self { case .battery: "电池"; case .memory: "内存"; case .network: "网络"; case .storage: "硬盘可用" } }
-    var symbol: String { switch self { case .battery: "battery.75percent"; case .memory: "memorychip"; case .network: "wifi"; case .storage: "internaldrive" } }
+    var title: String { switch self { case .cpu: "CPU"; case .pressure: "内存压力"; case .wake: "唤醒状态"; case .battery: "电池"; case .memory: "内存"; case .network: "网络"; case .storage: "硬盘可用" } }
+    var symbol: String { switch self { case .cpu: "cpu"; case .pressure: "memorychip"; case .wake: "sun.max"; case .battery: "battery.75percent"; case .memory: "memorychip"; case .network: "wifi"; case .storage: "internaldrive" } }
 }
 struct WidgetConfiguration: Codable, Identifiable, Equatable {
     var widget: StatusWidget
@@ -22,7 +22,7 @@ struct PanelScene: Codable, Identifiable, Equatable {
     var id = UUID()
     var name: String
     var symbol: String
-    var widgets = StatusWidget.allCases.map { WidgetConfiguration(widget: $0) }
+    var widgets = StatusWidget.allCases.map { WidgetConfiguration(widget: $0, visible: [.cpu, .pressure, .storage, .wake].contains($0)) }
     var actions = QuickAction.allCases.map(\.rawValue)
     var showClipboard = true
     var showWorkbench = true
@@ -47,12 +47,21 @@ final class ScenePanel: ObservableObject {
         data = SceneData(scenes: presets, selected: presets[0].id)
         if let saved = defaults.data(forKey: "scenePanels"), let decoded = try? JSONDecoder().decode(SceneData.self, from: saved),
            !decoded.scenes.isEmpty, decoded.scenes.count <= 12, Set(decoded.scenes.map(\.id)).count == decoded.scenes.count,
-           decoded.scenes.allSatisfy({ Set($0.widgets.map(\.widget)).count == $0.widgets.count && $0.widgets.count <= 4 }) {
+           decoded.scenes.allSatisfy({ Set($0.widgets.map(\.widget)).count == $0.widgets.count && $0.widgets.count <= StatusWidget.allCases.count }) {
             // Adopt the selected layout from older multi-scene preferences.
             let chosen = decoded.scenes.first { $0.id == decoded.selected } ?? decoded.scenes[0]
             data = SceneData(scenes: [chosen], selected: chosen.id)
         } else {
             data.scenes[0].actions = QuickAction.ordered(defaults.string(forKey: "quickActionOrder") ?? "").filter { !QuickAction.hidden(defaults.string(forKey: "hiddenQuickActions") ?? "").contains($0.rawValue) }.map(\.rawValue)
+        }
+        if !defaults.bool(forKey: "practicalStatusDefaultsV1") {
+            var panel = current
+            panel.widgets = StatusWidget.allCases.map { widget in
+                let oldSize = panel.widgets.first { $0.widget == widget }?.size ?? .medium
+                return WidgetConfiguration(widget: widget, size: oldSize, visible: [.cpu, .pressure, .storage, .wake].contains(widget))
+            }
+            update(panel)
+            defaults.set(true, forKey: "practicalStatusDefaultsV1")
         }
     }
     private func commit(_ next: SceneData) {
@@ -86,7 +95,7 @@ struct ScenePanelSettings: View {
                     }.pickerStyle(.segmented).frame(width: 120).labelsHidden()
                 }
             }
-            Text("小：紧凑数值；中：图标、数值与进度条；大：占满一行并显示更多说明。网络表示连接状态。")
+            Text("默认显示 CPU、内存压力、硬盘余量和唤醒状态。电池、内存占用百分比与网络可按需开启。小尺寸紧凑，中尺寸带状态说明，大尺寸独占一行。")
                 .font(.caption).foregroundStyle(.secondary)
         }
         Section("快捷操作与内容") {
@@ -118,14 +127,18 @@ struct ScenePanelSettings: View {
 struct StatusWidgetCard: View {
     let config: WidgetConfiguration
     @ObservedObject var system: SystemState
+    @ObservedObject private var lid = ClosedLidState.shared
     private var value: String {
-        switch config.widget { case .battery: system.battery; case .memory: system.memory; case .network: system.network; case .storage: system.storage }
+        switch config.widget { case .cpu: system.cpu; case .pressure: system.memoryPressure?.title ?? "暂不可用"; case .wake: lid.active ? "合盖运行中" : system.keepAwake ? system.wakeRemaining.isEmpty ? "持续唤醒" : system.wakeRemaining : "未开启"; case .battery: system.battery; case .memory: system.memory; case .network: system.network; case .storage: system.storage }
     }
     private var fraction: Double? {
-        switch config.widget { case .memory: system.memoryFraction; case .storage: system.storageFreeFraction; case .battery: Double(system.battery.replacingOccurrences(of: "%", with: "")).map { $0 / 100 }; case .network: nil }
+        switch config.widget { case .cpu: system.cpuFraction; case .pressure, .wake: nil; case .memory: system.memoryFraction; case .storage: system.storageFreeFraction; case .battery: Double(system.battery.replacingOccurrences(of: "%", with: "")).map { $0 / 100 }; case .network: nil }
     }
     private var detail: String {
         switch config.widget {
+        case .cpu: "本机总体占用"
+        case .pressure: system.memoryPressure == .normal ? "系统内存状态良好" : system.memoryPressure == .warning ? "系统内存较吃紧" : system.memoryPressure == .critical ? "建议减少同时运行的任务" : "无法读取系统压力"
+        case .wake: lid.active ? (lid.endsAt.map { "至 " + $0.formatted(date: .omitted, time: .shortened) } ?? "直到关闭或退出") : system.keepAwake ? system.wakeEndsAt == nil ? "直到手动关闭" : "剩余唤醒时间" : "允许正常睡眠"
         case .battery: fraction == nil ? "电池状态不可用" : "当前电量"
         case .memory: fraction == nil ? "暂不可用" : "已用内存"
         case .network: "网络连接状态"
@@ -134,6 +147,9 @@ struct StatusWidgetCard: View {
     }
     private var tint: Color {
         switch config.widget {
+        case .cpu: .haloBlue
+        case .pressure: system.memoryPressure == .critical ? .red : system.memoryPressure == .warning ? .orange : .haloGreen
+        case .wake: lid.active || system.keepAwake ? .haloOrange : .secondary
         case .battery, .network: .haloGreen
         case .memory: .haloBlue
         case .storage: .haloOrange
@@ -141,6 +157,7 @@ struct StatusWidgetCard: View {
     }
     private var progressLabel: String {
         switch config.widget {
+        case .cpu: "CPU 占用比例"
         case .memory: "内存已用比例"
         case .storage: "硬盘可用比例"
         default: "电池电量"
@@ -182,7 +199,7 @@ struct StatusWidgetCard: View {
                     .font(.system(size: 10)).foregroundStyle(.secondary)
                     .lineLimit(1).padding(.top, 6)
                 if config.size == .large {
-                    Text(config.widget == .memory ? "本机实时统计 · 不代表内存压力" : config.widget == .storage ? "可用容量 / 磁盘总容量" : config.widget == .network ? "连接状态不代表互联网速度" : "本机实时电池信息")
+                    Text(config.widget == .cpu ? "按采样间隔计算所有核心总体占用" : config.widget == .pressure ? "来自系统内存压力等级" : config.widget == .wake ? "普通唤醒与合盖会话的实际状态" : config.widget == .memory ? "本机实时统计 · 不代表内存压力" : config.widget == .storage ? "可用容量 / 磁盘总容量" : config.widget == .network ? "连接状态不代表互联网速度" : "本机实时电池信息")
                         .font(.caption2).foregroundStyle(.secondary).lineLimit(1).padding(.top, 5)
                 }
             }

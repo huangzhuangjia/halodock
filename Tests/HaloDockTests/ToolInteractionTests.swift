@@ -215,6 +215,35 @@ import Testing
     #expect(modes == [.scroll, .gif])
 }
 
+@Test @MainActor func scrollOverlayStartsWithoutButtonConfirmsOnceAndClosesBothPanels() async throws {
+    _ = NSApplication.shared
+    let image = try sampleImage()
+    let screen = try #require(NSScreen.main)
+    let session = ExtendedCaptureSession(mode: .scroll, screen: screen, selection: CGRect(x: 80, y: 90, width: 500, height: 300), initial: image, captureFrame: { image })
+    var confirmations = 0, closes = 0
+    session.onConfirmed = { _ in confirmations += 1 }
+    session.onClose = { closes += 1 }
+    defer { session.close() }
+    let before = Set(NSApp.windows.map(ObjectIdentifier.init))
+    session.show()
+    try await Task.sleep(for: .milliseconds(150))
+    #expect(session.scrollPhase == .capturing && session.capturedFrames > 0)
+    let panels = NSApp.windows.filter { !before.contains(ObjectIdentifier($0)) && $0.identifier?.rawValue == "HaloDockCaptureControls" }
+    #expect(panels.count == 3) // toolbar, thumbnail, click-through outline
+    let accessibleButtons = panels.flatMap { $0.contentView.map { buttons(in: $0) } ?? [] }
+    #expect(!accessibleButtons.contains { $0.title.contains("开始采集") })
+    session.confirmScroll(); session.confirmScroll()
+    #expect(session.confirmed && session.scrollPhase == .preview && confirmations == 1)
+    let captured = session.capturedFrames
+    try await Task.sleep(for: .milliseconds(120))
+    #expect(session.capturedFrames == captured)
+    let control = try #require(panels.compactMap { $0 as? CaptureControlPanel }.first)
+    control.cancelOperation(nil)
+    #expect(panels.allSatisfy { !$0.isVisible })
+    session.close()
+    #expect(closes == 1)
+}
+
 @Test @MainActor func renderToolPanelsForVisualReview() async throws {
     guard let directory = ProcessInfo.processInfo.environment["HALODOCK_RENDER_PREVIEWS"] else { return }
     _ = NSApplication.shared

@@ -54,7 +54,7 @@
       <div class="story-sticky shell">
         <div class="story-copy">
           <div class="story-pages">
-            <article class="story-page is-active" data-story-page="0"><span class="story-number">01 / 一眼掌握</span><h3>Mac 的状态，<br>心里有数。</h3><p>电池、内存和硬盘余量，打开就能看到。组件尺寸、显示内容和操作顺序，都能按习惯调整。</p><span class="story-note">自定义面板 · 真实系统状态</span></article>
+            <article class="story-page is-active" data-story-page="0"><span class="story-number">01 / 一眼掌握</span><h3>Mac 的状态，<br>心里有数。</h3><p>CPU 占用、内存压力、硬盘余量和唤醒状态，打开就能看到。组件尺寸、显示内容和操作顺序，都能按习惯调整。</p><span class="story-note">自定义面板 · 真实系统状态</span></article>
             <article class="story-page" data-story-page="1"><span class="story-number">02 / 顺手处理</span><h3>截下来。<br>接着就能做。</h3><p>选好范围，原地标注、识字或贴到桌面。想留下整段内容？滚动截图和 GIF，也在同一条工具栏里。</p><span class="story-note">截图行动卡 · 本机识字</span></article>
             <article class="story-page" data-story-page="2"><span class="story-number">03 / 放在一起</span><h3>围绕一件事，<br>收在一个地方。</h3><p>把截图、文字和文件收进同一个工作台。选择目标再保存，常用回复还能变成随时复制的文本片段。</p><span class="story-note">工作台 · 快捷文本片段</span></article>
             <article class="story-page" data-story-page="3"><span class="story-number">04 / 接着阅读</span><h3>资料在眼前。<br>思路连起来。</h3><p>Markdown 直接看排版，代码可看源码，PDF 原地阅读。需要的时候再导出、复制，继续手头的工作。</p><span class="story-note">文档预览 · Markdown 导出</span></article>
@@ -69,11 +69,11 @@
           </div>
         </div>
         <div class="story-visuals" aria-live="off">
-          <figure class="story-visual is-active story-status" data-story-visual="0"><div class="story-status-well"><button class="image-button" data-image-preview data-title="状态面板" aria-label="放大查看状态面板"><img src="./assets/panel.png" width="780" height="1654" alt="状态面板中的内存和硬盘进度条"></button></div><figcaption>数据来自本机，每 2 秒更新。</figcaption></figure>
+          <figure class="story-visual is-active story-status" data-story-visual="0"><div class="story-status-well"><button class="image-button" data-image-preview data-title="状态面板" aria-label="放大查看状态面板"><img src="./assets/panel.png" width="780" height="1654" alt="状态面板中的 CPU、内存压力、硬盘与唤醒状态"></button></div><figcaption>数据来自本机，每 2 秒更新。</figcaption></figure>
           <figure class="story-visual story-capture" data-story-visual="1"><button class="image-button" data-image-preview data-title="截图行动卡" aria-label="放大查看截图行动卡"><img src="./assets/screenshot-actions.png" width="2400" height="1600" alt="选区内识字、标注、滚动截图和 GIF 入口"></button><figcaption>选区内继续操作，无需进入第二个编辑页面。</figcaption></figure>
           <figure class="story-visual story-workbench" data-story-visual="2"><button class="image-button" data-image-preview data-title="工作台" aria-label="放大查看工作台"><img src="./assets/workbench.png" width="1720" height="1240" alt="工作台里的截图、文字与发布资料"></button><figcaption>围绕任务整理，重启之后还在。</figcaption></figure>
           <figure class="story-visual story-markdown" data-story-visual="3"><button class="image-button" data-image-preview data-title="Markdown 文档预览" aria-label="放大查看 Markdown 文档预览"><img src="./assets/markdown.png" width="1720" height="1240" alt="Markdown 文件的标题、列表、代码块和表格预览"></button><figcaption>本机预览，支持排版与源码切换。</figcaption></figure>
-          <figure class="story-visual story-dock" data-story-visual="4"><button class="image-button" data-image-preview data-title="Dock 预览 · 开启与权限" aria-label="放大查看 Dock 预览设置和权限说明"><img src="./assets/dock-preview-settings.png" width="1600" height="1240" alt="Dock 预览设置，包含开启开关和两项权限入口"></button><figcaption>默认关闭 · 无法捕获的窗口显示占位卡，效果以实际窗口状态为准。</figcaption></figure>
+          <figure class="story-visual story-dock" data-story-visual="4"><button class="image-button" data-image-preview data-title="Dock 预览 · 开启与权限" aria-label="放大查看 Dock 预览设置和权限说明"><img src="./assets/dock-preview-settings.png" width="1600" height="1240" alt="Dock 预览设置，包含开启开关和两项权限入口"></button><figcaption>默认关闭 · 悬停时更新窗口列表，无法捕获的窗口显示占位卡。</figcaption></figure>
         </div>
       </div>
     </div>
@@ -89,7 +89,7 @@
     <details><summary>剪贴板会保存什么？<span aria-hidden="true">+</span></summary><p>只记录 App 运行期间新复制的文字、图片和文件，最多 50 条，不上传服务器。主动加入工作台的内容和保存的文本片段会独立保存在本机，跨重启保留，可手动删除。普通记录保存在内存，默认 1 小时自动清理，退出后清空；可在设置调整。主动固定的最多 10 条（总计 16 MB）保存在本机，取消固定或删除时移除。支持单张 8 MB 以内的图片和 100 KB 以内的文本；带保密、临时、自动生成标记的内容会跳过，未带标记的敏感文本仍可能被记录。</p></details>
     <details><summary>为什么首次打开可能有安全提示？<span aria-hidden="true">+</span></summary><p>当前版本为 ad-hoc 签名，尚未经过 Apple Developer ID 签名与公证。如果系统阻止打开，请查看“系统设置 → 隐私与安全性”的对应提示。源码和每版 SHA-256 校验文件均在 GitHub 提供。</p></details>
     <details><summary>清空废纸篓需要什么权限？<span aria-hidden="true">+</span></summary><p>需要允许 HaloDock 通过“自动化”控制 Finder。首次确认清空时系统会请求授权；若已拒绝，App 提供“前往设置”入口。清空属于永久删除，操作前会再次确认。</p></details>
-    <details><summary>滚动截图和 GIF 如何使用？<span aria-hidden="true">+</span></summary><p>选区后在底部工具栏点击对应操作。滚动截图点击开始后，在选区内缓慢滚动，连续采集拼接；可暂停，完成后预览、保存或选择目标工作台。最多 120 段，动态内容可能无法匹配。GIF 有 3 秒倒计时，最长 15 秒，不录制声音。完成后可保存或加入工作台。</p></details>
+    <details><summary>滚动截图和 GIF 如何使用？<span aria-hidden="true">+</span></summary><p>选区后在底部工具栏点击对应操作。进入滚动截图后直接滚动，侧边长图实时增长；底部点 ✓ 确认，再复制、保存或收集。最多 120 段、24000 像素高或 4000 万像素，达到上限会停止并明确提示。动态内容和快速跳动可能无法匹配。GIF 有 3 秒倒计时，最长 15 秒，不录制声音。完成后可保存或加入工作台。</p></details>
     <details><summary>Dock 窗口预览需要什么？<span aria-hidden="true">+</span></summary><p>在 App 设置的“Dock 预览”中主动开启，默认关闭。需要 macOS 14+、辅助功能与屏幕录制权限。悬停 App 或 Finder 图标后查看窗口，点击缩略图切换；无法捕获的窗口显示占位卡。预览仅在本机临时显示，实际效果取决于系统权限和窗口状态。<a href="#dock-preview">查看开启步骤与权限说明</a>。</p></details>
     <details><summary>如何更新和反馈问题？<span aria-hidden="true">+</span></summary><p>从 GitHub Releases 下载新版 DMG，退出旧版后替换安装。App 内“设置 → 软件更新”提供更新入口（v0.1.4 起）；v0.1.6 起支持 App 内显示进度并自动替换，完成后短暂重启。旧版首次升级到 v0.1.6 仍需手动安装。遇到问题可从 App“设置 → 问题反馈”整理草稿，或前往 <a href="https://github.com/huangzhuangjia/halodock/issues" target="_blank" rel="noopener">GitHub Issues</a>，附上 macOS、App 版本和复现步骤，截图前隐藏私人内容。</p></details>
   </div></section>

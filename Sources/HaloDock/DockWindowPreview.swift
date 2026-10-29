@@ -16,6 +16,17 @@ struct DockPreviewPlacement {
     }
 }
 
+struct DockPreviewRefreshGate {
+    private(set) var loading = false
+    private(set) var lastRefresh = Date.distantPast
+    mutating func begin(now: Date = Date(), force: Bool = false) -> Bool {
+        guard !loading, force || now.timeIntervalSince(lastRefresh) >= 1 else { return false }
+        loading = true; lastRefresh = now; return true
+    }
+    mutating func finish() { loading = false }
+    mutating func reset() { loading = false; lastRefresh = .distantPast }
+}
+
 @MainActor
 struct DockWindowThumbnail: Identifiable {
     let id: String
@@ -42,6 +53,8 @@ final class DockWindowPreview: ObservableObject {
     private var candidateSince = Date()
     private var lastInside = Date()
     private var generation = UUID()
+    private var refreshGate = DockPreviewRefreshGate()
+    private var activeAnchor: CGRect?
     private let defaults: UserDefaults
     private var configured = false
     private var suspension: (() -> Bool)?
@@ -88,8 +101,11 @@ final class DockWindowPreview: ObservableObject {
     func openAccessibilitySettings() { if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") { NSWorkspace.shared.open(url) } }
     private func poll() {
         guard enabled, accessibilityGranted, screenGranted, suspension?() != true else { hide(); return }
+        if activeApp?.isTerminated == true { hide(); return }
         let mouse = NSEvent.mouseLocation
-        if let panel, panel.isVisible && panel.frame.contains(mouse) { lastInside = Date(); return }
+        if let panel, panel.isVisible && panel.frame.contains(mouse) {
+            lastInside = Date(); refreshCurrentIfNeeded(); return
+        }
         guard let hit = dockItem(at: mouse) else {
             if Date().timeIntervalSince(lastInside) > 0.45 { hide() }
             candidatePID = nil; return
@@ -99,8 +115,10 @@ final class DockWindowPreview: ObservableObject {
             hide(); candidatePID = hit.app.processIdentifier; candidateSince = Date(); return
         }
         guard Date().timeIntervalSince(candidateSince) >= 0.36 else { return }
-        if activeApp?.processIdentifier == hit.app.processIdentifier { return }
-        activeApp = hit.app
+        if activeApp?.processIdentifier == hit.app.processIdentifier {
+            activeAnchor = hit.frame; refreshCurrentIfNeeded(); return
+        }
+        activeApp = hit.app; activeAnchor = hit.frame
         load(app: hit.app, anchor: hit.frame)
     }
     private func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
@@ -140,25 +158,42 @@ final class DockWindowPreview: ObservableObject {
         }
         return nil
     }
-    private func load(app: NSRunningApplication, anchor: CGRect) {
+    private func refreshCurrentIfNeeded() {
+        guard let app = activeApp, let anchor = activeAnchor else { return }
+        load(app: app, anchor: anchor, refreshing: true)
+    }
+    private func load(app: NSRunningApplication, anchor: CGRect, refreshing: Bool = false) {
+        guard refreshGate.begin(force: !refreshing) else { return }
         generation = UUID(); let token = generation; loadTask?.cancel()
-        thumbnails = []; loading = true; appName = app.localizedName ?? "App"
-        show(anchor: anchor, count: 1)
+        if !refreshing {
+            thumbnails = []; loading = true; appName = app.localizedName ?? "App"
+            show(anchor: anchor, count: 1)
+        }
         loadTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            defer { if generation == token { refreshGate.finish(); loadTask = nil; loading = false } }
             guard #available(macOS 14.0, *) else { return }
             do {
                 let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
                 guard !Task.isCancelled, generation == token else { return }
                 let axApp = AXUIElementCreateApplication(app.processIdentifier)
                 AXUIElementSetMessagingTimeout(axApp, 0.08)
-                let axWindows = Array((attribute(axApp, kAXWindowsAttribute) as? [AXUIElement] ?? []).prefix(12))
+                let currentAXWindows = attribute(axApp, kAXWindowsAttribute) as? [AXUIElement]
+                let axWindows = Array((currentAXWindows ?? []).prefix(30))
+                // Remove stale cards immediately, before awaiting replacement image capture.
+                if refreshing, let currentAXWindows {
+                    thumbnails.removeAll { old in
+                        guard let window = old.window else { return false }
+                        return !currentAXWindows.contains { CFEqual($0, window) }
+                    }
+                }
                 let axMetadata = axWindows.map { window in
                     (frame: rect(window), title: attribute(window, kAXTitleAttribute) as? String ?? "", minimized: attribute(window, kAXMinimizedAttribute) as? Bool ?? false)
                 }
                 let windows = content.windows.filter { $0.owningApplication?.processID == app.processIdentifier && $0.windowLayer == 0 && $0.frame.width >= 70 && $0.frame.height >= 60 }
                 var previews: [DockWindowThumbnail] = [], used = Set<Int>()
-                for window in windows.prefix(6) {
+                for window in windows.prefix(12) {
+                    if previews.count >= 6 { break }
                     try Task.checkCancellation()
                     let match = axWindows.indices.first { i in
                         guard !used.contains(i), let frame = axMetadata[i].frame else { return false }
@@ -166,6 +201,9 @@ final class DockWindowPreview: ObservableObject {
                         let converted = CGRect(x: window.frame.minX, y: screenTop - window.frame.maxY, width: window.frame.width, height: window.frame.height)
                         return abs(frame.minX - converted.minX) < 6 && abs(frame.minY - converted.minY) < 6 && abs(frame.width - converted.width) < 6 && abs(frame.height - converted.height) < 6
                     } ?? axWindows.indices.first { !used.contains($0) && !axMetadata[$0].title.isEmpty && axMetadata[$0].title == window.title }
+                    // ScreenCaptureKit may briefly keep a just-closed window. A successful
+                    // AX list is authoritative for whether its actionable window still exists.
+                    if currentAXWindows != nil && match == nil { continue }
                     let ax = match.map { axWindows[$0] }; if let match { used.insert(match) }
                     let minimized = match.map { axMetadata[$0].minimized } ?? false
                     let filter = SCContentFilter(desktopIndependentWindow: window)
@@ -184,7 +222,11 @@ final class DockWindowPreview: ObservableObject {
                     previews.append(.init(id: "ax-\(i)", title: title, image: nil, window: window, minimized: minimized))
                 }
                 guard !Task.isCancelled, generation == token else { return }
-                loading = false; thumbnails = previews; show(anchor: anchor, count: max(1, min(3, previews.count)))
+                loading = false; thumbnails = previews
+                // Do not move the popup under a pointer that is selecting a card.
+                if !refreshing || panel?.frame.contains(NSEvent.mouseLocation) != true {
+                    show(anchor: anchor, count: max(1, min(3, previews.count)))
+                }
             } catch {
                 guard generation == token else { return }
                 thumbnails = []; hide()
@@ -215,6 +257,13 @@ final class DockWindowPreview: ObservableObject {
     func activate(_ thumbnail: DockWindowThumbnail) {
         guard let app = activeApp, !app.isTerminated else { hide(); return }
         if let window = thumbnail.window {
+            let root = AXUIElementCreateApplication(app.processIdentifier)
+            AXUIElementSetMessagingTimeout(root, 0.1)
+            if let live = attribute(root, kAXWindowsAttribute) as? [AXUIElement], !live.contains(where: { CFEqual($0, window) }) {
+                thumbnails.removeAll { $0.id == thumbnail.id }
+                refreshGate.reset(); refreshCurrentIfNeeded()
+                return
+            }
             _ = AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
             _ = AXUIElementPerformAction(window, kAXRaiseAction as CFString)
         }
@@ -225,6 +274,7 @@ final class DockWindowPreview: ObservableObject {
     func hide() {
         generation = UUID(); loadTask?.cancel(); loadTask = nil
         panel?.orderOut(nil); thumbnails = []; loading = false; activeApp = nil
+        activeAnchor = nil; candidatePID = nil; refreshGate.reset()
     }
     private func stopMonitor() { monitor?.cancel(); monitor = nil; candidatePID = nil; hide() }
     func shutdown() { stopMonitor(); permissionObservation = nil; panel?.close(); panel = nil; configured = false }

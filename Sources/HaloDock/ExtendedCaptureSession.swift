@@ -16,6 +16,9 @@ final class ExtendedCaptureSession: ObservableObject {
     @Published private(set) var recording = false
     @Published private(set) var completed = false
     @Published private(set) var capturedFrames = 0
+    private var unchangedFrames = 0
+    private var unmatchedFrames = 0
+    private var mismatchSince: Date?
     @Published private(set) var count = 1
     @Published private(set) var elapsed = 0
     @Published private(set) var thumbnail: NSImage?
@@ -32,9 +35,18 @@ final class ExtendedCaptureSession: ObservableObject {
     private var gif: GIFWriter?
     private var task: Task<Void, Never>?
     private var panel: NSPanel?
+    private var previewPanel: NSPanel?
+    private var localKeys: Any?
+    private var globalKeys: Any?
+    private var closed = false
+    @Published private(set) var attention: String?
+    @Published private(set) var confirmed = false
+    @Published private(set) var resultFeedback: String?
+    var onConfirmed: ((CGImage) -> Void)?
     var onClose: (() -> Void)?
     var isWorking: Bool { busy || recording || scrollPhase == .capturing }
     var outputImage: CGImage { result }
+    var maximumScrollHeight: Int { ScrollCaptureLimits.maximumHeight(width: result.width) }
     var gifURL: URL? { completed ? gif?.url : nil }
 
     init(mode: Mode, screen: NSScreen, selection: CGRect, initial: CGImage, captureFrame: (() async throws -> CGImage)? = nil, countdownSeconds: Int = 3, duration: TimeInterval = 15) {
@@ -43,9 +55,11 @@ final class ExtendedCaptureSession: ObservableObject {
         let normalized = CaptureImage.resized(initial, maxWidth: 1600) ?? initial
         result = normalized; last = normalized
         thumbnail = NSImage(cgImage: CaptureImage.resized(normalized, maxWidth: 280) ?? normalized, size: CGSize(width: normalized.width, height: normalized.height))
-        message = mode == .scroll ? "点“开始采集”，回到选区内连续向下滚动；滚动中持续采集拼接，完成时点“完成”。" : "点击开始，3 秒后录制选区；最长 15 秒、最多 120 帧，不录制声音。"
+        message = mode == .scroll ? "滚动即采集 · 点击 ✓ 确认 · Esc 取消" : "点击开始，3 秒后录制选区；最长 15 秒、最多 120 帧，不录制声音。"
     }
     func show() {
+        guard !closed else { return }
+        if mode == .scroll { showScrollInterface(); return }
         let controller = NSHostingController(rootView: ExtendedCaptureControls(session: self))
         let window = NSPanel(contentViewController: controller)
         window.identifier = NSUserInterfaceItemIdentifier("HaloDockCaptureControls")
@@ -62,12 +76,78 @@ final class ExtendedCaptureSession: ObservableObject {
         panel = window; window.makeKeyAndOrderFront(nil)
         if mode == .scroll { showOutline() }
     }
+    private func showScrollInterface() {
+        let controller = NSHostingController(rootView: ScrollCaptureToolbar(session: self))
+        controller.sizingOptions = []
+        let controls = CaptureControlPanel(contentViewController: controller)
+        controls.identifier = NSUserInterfaceItemIdentifier("HaloDockCaptureControls")
+        controls.styleMask = [.borderless, .nonactivatingPanel]
+        controls.isReleasedWhenClosed = false; controls.level = .floating
+        controls.hidesOnDeactivate = false; controls.isOpaque = false; controls.backgroundColor = .clear
+        controls.hasShadow = true; controls.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        controls.onEscape = { [weak self] in self?.close() }
+        controls.setContentSize(CGSize(width: 370, height: 54))
+        panel = controls
+
+        let previewController = NSHostingController(rootView: ScrollCaptureThumbnail(session: self))
+        previewController.sizingOptions = []
+        let preview = CaptureControlPanel(contentViewController: previewController)
+        preview.identifier = NSUserInterfaceItemIdentifier("HaloDockCaptureControls")
+        preview.styleMask = [.borderless, .nonactivatingPanel]
+        preview.isReleasedWhenClosed = false; preview.level = .floating
+        preview.hidesOnDeactivate = false; preview.isOpaque = false; preview.backgroundColor = .clear
+        preview.hasShadow = true; preview.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        preview.onEscape = { [weak self] in self?.close() }
+        let area = CGRect(x: screenFrame.minX + selection.minX, y: screenFrame.maxY - selection.maxY, width: selection.width, height: selection.height)
+        let placement = ScrollCapturePlacement.frames(selection: area, visible: screen.visibleFrame)
+        preview.setContentSize(placement.preview.size)
+        preview.setFrame(placement.preview, display: true)
+        controls.setFrame(placement.toolbar, display: true)
+        previewPanel = preview
+        showOutline()
+        controls.orderFrontRegardless(); preview.orderFrontRegardless()
+        installKeys()
+        // Start observing immediately; no button or synthetic scrolling is needed.
+        startScroll()
+    }
+    private func installKeys() {
+        localKeys = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.mode == .scroll, !self.closed else { return event }
+            if event.keyCode == 53 { self.close(); return nil }
+            return event
+        }
+        globalKeys = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.keyCode == 53 { self?.close() }
+        }
+    }
+    private func removeKeys() {
+        if let localKeys { NSEvent.removeMonitor(localKeys) }
+        if let globalKeys { NSEvent.removeMonitor(globalKeys) }
+        localKeys = nil; globalKeys = nil
+    }
+    func confirmScroll() {
+        guard mode == .scroll, !closed, !confirmed else { return }
+        if scrollPhase != .preview { finishScroll() }
+        confirmed = true
+        message = "长截图已确认"
+        onConfirmed?(result)
+    }
+    func retryScroll() {
+        guard !closed, scrollPhase == .paused else { return }
+        attention = nil; startScroll()
+    }
     private func frame() async throws -> CGImage {
         if let captureFrame { return try await captureFrame() }
         guard NSScreen.screens.contains(screen), screen.frame == screenFrame else { throw WorkError("显示器布局已变化，请重新选择选区") }
         // On 13 the fallback cannot exclude windows; hide our control strip during capture.
-        if #unavailable(macOS 14.0) { panel?.orderOut(nil); try await Task.sleep(for: .milliseconds(100)) }
-        defer { if #unavailable(macOS 14.0) { panel?.orderFrontRegardless() } }
+        if #unavailable(macOS 14.0) {
+            panel?.orderOut(nil); previewPanel?.orderOut(nil); outline?.orderOut(nil)
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        defer { if #unavailable(macOS 14.0), !closed {
+            panel?.orderFrontRegardless(); previewPanel?.orderFrontRegardless()
+            if scrollPhase == .capturing { outline?.orderFrontRegardless() }
+        } }
         let image = try await displaySource.image()
         guard let pixels = ScreenshotGeometry.pixels(for: selection, viewSize: screen.frame.size, imageSize: CGSize(width: image.width, height: image.height)), let cropped = image.cropping(to: pixels), let normalized = CaptureImage.resized(cropped, maxWidth: 1600) else { throw WorkError("选区捕获失败") }
         return normalized
@@ -83,11 +163,20 @@ final class ExtendedCaptureSession: ObservableObject {
         view.layer?.borderWidth = 2; view.layer?.borderColor = NSColor.systemOrange.cgColor
         border.contentView = view; border.orderFrontRegardless(); outline = border
     }
+    private func endAtLimit(_ reason: String) {
+        scrollPhase = .preview; busy = false; outline?.orderOut(nil)
+        attention = reason + "。已停止采集，内容已保留；点击 ✓ 确认后保存，可从当前位置另截一张。"
+        message = "已达长度上限"
+    }
     func startScroll() {
+        guard !closed, mode == .scroll else { return }
+        if let reason = ScrollCaptureLimits.stopReason(width: result.width, height: result.height, count: count) { endAtLimit(reason); return }
+        mismatchSince = nil
         guard mode == .scroll, !busy, scrollPhase != .capturing, scrollPhase != .preview, count < 120 else { return }
         scrollTask?.cancel()
         let generation = UUID(); scrollGeneration = generation
-        scrollPhase = .capturing; message = "采集中 · 在橙色选区内连续向下滚动，滚动中持续采集拼接。"
+        scrollPhase = .capturing; attention = nil
+        message = "滚动即采集"
         outline?.orderFrontRegardless()
         scrollTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -101,16 +190,17 @@ final class ExtendedCaptureSession: ObservableObject {
                     _ = try await self.merge(next, force: false, automatic: true, generation: generation)
                     guard generation == self.scrollGeneration, !Task.isCancelled else { return }
                     self.busy = false
-                    if self.count >= 120 || self.result.height >= 24000 {
-                        self.scrollPhase = .preview; self.outline?.orderOut(nil)
-                        self.message = "已达到长图上限，请预览并保存。"; return
+                    if self.scrollPhase == .preview { return }
+                    if let reason = ScrollCaptureLimits.stopReason(width: self.result.width, height: self.result.height, count: self.count) {
+                        self.endAtLimit(reason); return
                     }
                     try await Task.sleep(for: .milliseconds(80))
                 } catch is CancellationError { return }
                 catch {
                     guard generation == self.scrollGeneration else { return }
                     self.busy = false; self.scrollPhase = .paused
-                    self.message = "采集已暂停：" + error.localizedDescription; return
+                    self.attention = "采集已暂停：" + error.localizedDescription + "。已有内容保留，可重试或点击 ✓ 确认。"
+                    self.message = "采集异常"; return
                 }
             }
         }
@@ -125,7 +215,7 @@ final class ExtendedCaptureSession: ObservableObject {
         guard mode == .scroll else { return }
         scrollGeneration = UUID(); scrollTask?.cancel(); scrollTask = nil
         task?.cancel(); busy = false; scrollPhase = .preview; outline?.orderOut(nil)
-        message = "长图已完成 · \(result.width) × \(result.height) px，可以预览、保存或选择工作台。"
+        message = "长图已完成 · \(result.width) × \(result.height) px"
     }
     func addPage(force: Bool = false) {
         guard mode == .scroll, !busy, scrollPhase != .capturing, scrollPhase != .preview, count < 120 else { return }
@@ -143,27 +233,47 @@ final class ExtendedCaptureSession: ObservableObject {
     private func merge(_ next: CGImage, force: Bool, automatic: Bool, generation: UUID) async throws -> Bool {
         guard generation == scrollGeneration, !Task.isCancelled else { return false }
         if !force && ScrollStitcher.isDuplicate(last, next) {
-            if !automatic { message = "画面没有变化，请先向下滚动。" }
+            unchangedFrames += 1
+            if !automatic || unchangedFrames >= 12 { message = count > 1 ? "继续滚动或点 ✓ 完成" : "在选区内滚动即可" }
             return false
         }
+        unchangedFrames = 0
         let overlap: Int
         if force { overlap = 0 }
         else {
             let lastFrame = last
             guard let matched = await Task.detached(operation: { ScrollStitcher.overlap(previous: lastFrame, next: next) }).value else {
-                if generation == scrollGeneration { message = "尚未拼接：画面有变化，但未找到可靠重叠。请向上退一点，再慢慢下滚；已有长图保留。" }
+                if generation == scrollGeneration {
+                    unmatchedFrames += 1
+                    if mismatchSince == nil { mismatchSince = Date() }
+                    message = "等待匹配滚动内容"
+                    if Date().timeIntervalSince(mismatchSince ?? Date()) >= 3 {
+                        attention = "暂未找到可靠重叠。请向上退一点再下滚，或只框选内层滚动内容；已有长图保留，采集会继续尝试。"
+                    }
+                }
                 return false
             }
             overlap = matched
             // Wait until enough new content accumulates; tiny motion should not consume the frame limit.
-            if automatic && next.height - overlap < max(8, next.height / 40) { return false }
+            if automatic && next.height - overlap < max(8, next.height / 40) {
+                message = "正在采集，滚动位移较小；继续向下滚动即可。"
+                return false
+            }
+        }
+        let nextHeight = result.height + next.height - overlap
+        if nextHeight > maximumScrollHeight {
+            endAtLimit(result.width > 0 && ScrollCaptureLimits.pixels / result.width < 24000
+                ? "下一段会超出 4000 万像素容量上限（当前宽度最多 \(maximumScrollHeight) px 高）"
+                : "下一段会超出 24000 px 高度上限")
+            return false
         }
         let previous = result
         let combined = try await Task.detached { try ScrollStitcher.append(next, to: previous, overlap: overlap) }.value
         guard generation == scrollGeneration, !Task.isCancelled else { return false }
+        unmatchedFrames = 0; mismatchSince = nil; attention = nil
         result = combined; last = next; count += 1
         thumbnail = NSImage(cgImage: CaptureImage.resized(result, maxWidth: 280) ?? result, size: CGSize(width: result.width, height: result.height))
-        message = "已拼接 \(count) 段 · \(result.width) × \(result.height) px · 继续滚动或点完成"
+        message = "滚动采集中"
         return true
     }
     func startGIF() {
@@ -202,8 +312,9 @@ final class ExtendedCaptureSession: ObservableObject {
         guard !busy, !recording, scrollPhase != .capturing else { return }
         if mode == .scroll {
             let doc = ScreenshotDocument(image: result)
-            if doc.save() { message = "已保存长图" }
-            else { message = doc.status }
+            if doc.save() { message = "已保存长图"; resultFeedback = "已保存" }
+            else if doc.status.hasPrefix("保存失败") || doc.status.hasPrefix("无法生成") { message = doc.status; resultFeedback = "保存失败"; attention = doc.status }
+            panel?.orderFrontRegardless()
         } else if completed, let gif {
             let save = NSSavePanel(); save.allowedContentTypes = [.gif]; save.nameFieldStringValue = "HaloDock-\(Int(Date().timeIntervalSince1970)).gif"
             guard save.runModal() == .OK, let url = save.url else { return }
@@ -213,13 +324,18 @@ final class ExtendedCaptureSession: ObservableObject {
     }
     func copy() {
         guard mode == .scroll, !busy, scrollPhase != .capturing else { return }
-        let doc = ScreenshotDocument(image: result); _ = doc.copy(); message = doc.status
+        let doc = ScreenshotDocument(image: result)
+        let success = doc.copy(); message = doc.status
+        resultFeedback = success ? "已复制" : "复制失败"
+        if !success { attention = doc.status }
     }
     func addToWorkbench(to destination: UUID) {
         guard !busy, !recording, scrollPhase != .capturing else { return }
         if mode == .scroll { _ = WorkbenchStore.shared.add(image: result, title: "滚动截图 · \(count) 屏", to: destination) }
         else if completed, let gif, let data = try? Data(contentsOf: gif.url) { _ = WorkbenchStore.shared.addAsset(data, extension: "gif", kind: .gif, title: "GIF · \(count) 帧", to: destination) }
         message = WorkbenchStore.shared.message ?? "请重试"
+        resultFeedback = message.hasPrefix("已加入") ? "已收集" : "收集失败"
+        if !message.hasPrefix("已加入") { attention = message }
     }
     private func cleanupGIF() {
         guard let writer = gif else { return }
@@ -228,65 +344,27 @@ final class ExtendedCaptureSession: ObservableObject {
         Task { await writer.discard() }
     }
     func close() {
+        guard !closed else { return }; closed = true
+        removeKeys()
         scrollGeneration = UUID(); scrollTask?.cancel(); scrollTask = nil
         task?.cancel(); recording = false; busy = false; scrollPhase = .preview
-        cleanupGIF(); outline?.close(); outline = nil; panel?.close(); panel = nil; onClose?()
+        cleanupGIF(); outline?.close(); outline = nil; panel?.close(); panel = nil
+        previewPanel?.close(); previewPanel = nil
+        let callback = onClose; onClose = nil; callback?()
     }
 }
 
 private struct ExtendedCaptureControls: View {
     @ObservedObject var session: ExtendedCaptureSession
-    @State private var confirmAppend = false
-    @State private var expandedPreview = false
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label(session.mode == .scroll ? "滚动截图" : "选区 GIF", systemImage: session.mode == .scroll ? "scroll" : "record.circle").font(.headline)
+                Label("选区 GIF", systemImage: "record.circle").font(.headline)
                 Spacer()
                 Button { session.close() } label: { Image(systemName: "xmark") }.buttonStyle(.plain).accessibilityLabel("取消并关闭")
             }
             Text(session.message).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            if session.mode == .scroll {
-                if session.scrollPhase == .preview {
-                    Button { expandedPreview = true } label: {
-                        HStack {
-                            if let thumbnail = session.thumbnail { Image(nsImage: thumbnail).resizable().scaledToFit().frame(width: 65, height: 90) }
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("预览完整长图").fontWeight(.medium)
-                                Text("\(session.outputImage.width) × \(session.outputImage.height) px · \(session.count) 段").font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer(); Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        }.padding(10)
-                    }.buttonStyle(.plain).background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
-                    HStack {
-                        Button("复制") { session.copy() }
-                        Button("保存 PNG") { session.save() }.buttonStyle(.borderedProminent)
-                        WorkbenchDestinationMenu { session.addToWorkbench(to: $0) }
-                    }.disabled(session.busy)
-                } else {
-                    HStack(spacing: 12) {
-                        if let thumbnail = session.thumbnail { Image(nsImage: thumbnail).resizable().scaledToFit().frame(width: 48, height: 64) }
-                        VStack(alignment: .leading, spacing: 5) {
-                            Label(session.scrollPhase == .capturing ? "正在自动拼接" : session.scrollPhase == .paused ? "采集已暂停" : "准备开始", systemImage: session.scrollPhase == .capturing ? "record.circle" : "scroll")
-                            Text("\(session.outputImage.height) px 高 · \(session.count) 段 · 已读取 \(session.capturedFrames) 帧").font(.caption).monospacedDigit().foregroundStyle(.secondary)
-                        }
-                    }
-                    HStack {
-                        if session.scrollPhase == .capturing {
-                            Button("暂停") { session.pauseScroll() }
-                            Button("完成") { session.finishScroll() }.buttonStyle(.borderedProminent)
-                        } else {
-                            Button(session.scrollPhase == .paused ? "继续采集" : "开始采集") { session.startScroll() }.buttonStyle(.borderedProminent)
-                            Button("完成") { session.finishScroll() }
-                            Menu("更多") {
-                                Button("手动补一屏") { session.addPage() }
-                                Button("不去重追加…") { confirmAppend = true }
-                            }.disabled(session.busy)
-                        }
-                    }
-                    Text("在原窗口连续向下滚动，无需逐屏停顿或点击。可随时暂停；最多 120 段、24000 像素高。").font(.caption2).foregroundStyle(.secondary)
-                }
-            } else if session.completed {
+            if session.completed {
                 HStack { Button("保存 GIF") { session.save() }.buttonStyle(.borderedProminent); WorkbenchDestinationMenu { session.addToWorkbench(to: $0) } }
             } else {
                 HStack {
@@ -296,12 +374,5 @@ private struct ExtendedCaptureControls: View {
                 }
             }
         }.padding(16).frame(width: 390).modifier(HaloDockTheme())
-        .confirmationDialog("直接追加不会去重，请确认下一屏没有重叠。", isPresented: $confirmAppend) { Button("直接追加") { session.addPage(force: true) } }
-        .sheet(isPresented: $expandedPreview) {
-            VStack(spacing: 12) {
-                HStack { Text("长图预览").font(.headline); Spacer(); Button("完成") { expandedPreview = false } }
-                ScrollView { Image(nsImage: NSImage(cgImage: session.outputImage, size: CGSize(width: session.outputImage.width, height: session.outputImage.height))).resizable().scaledToFit().frame(width: 580) }
-            }.padding(16).frame(width: 620, height: 540).modifier(HaloDockTheme())
-        }
     }
 }

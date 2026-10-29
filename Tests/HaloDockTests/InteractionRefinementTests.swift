@@ -195,3 +195,15 @@ private func scrollingFixture() throws -> CGImage {
     let expected = try #require(image.cropping(to: CGRect(x: 0, y: 0, width: 160, height: 1140)))
     #expect(ScrollStitcher.difference(session.outputImage, expected) < 1)
 }
+
+@Test func dockPreviewRefreshesAfterIntervalWithoutOverlappingLoadsAndResetsOnHide() {
+    var gate = DockPreviewRefreshGate()
+    let now = Date()
+    let first = gate.begin(now: now, force: true); #expect(first)
+    let overlapping = gate.begin(now: now.addingTimeInterval(2), force: true); #expect(!overlapping)
+    gate.finish()
+    let early = gate.begin(now: now.addingTimeInterval(0.3)); #expect(!early)
+    let refreshed = gate.begin(now: now.addingTimeInterval(1.1)); #expect(refreshed)
+    gate.finish(); gate.reset()
+    let afterHide = gate.begin(now: now.addingTimeInterval(1.2)); #expect(afterHide)
+}

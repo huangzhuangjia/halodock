@@ -74,6 +74,19 @@ enum CaptureImage {
 }
 
 /// Match bottom/top overlap using a small grayscale raster. Never silently append an unmatchable page.
+enum ScrollCaptureLimits {
+    static let segments = 120
+    static let pixels = 40_000_000
+    static func maximumHeight(width: Int) -> Int { min(24000, pixels / max(1, width)) }
+    static func stopReason(width: Int, height: Int, count: Int) -> String? {
+        if count >= segments { return "已达到最多 120 段的上限" }
+        if height >= maximumHeight(width: width) {
+            return width > 0 && pixels / width < 24000 ? "已达到 4000 万像素容量上限（当前宽度最多 \(maximumHeight(width: width)) px 高）" : "已达到 24000 px 长图高度上限"
+        }
+        return nil
+    }
+}
+
 enum ScrollStitcher {
     static func overlap(previous: CGImage, next: CGImage) -> Int? {
         guard previous.width == next.width, previous.height == next.height,
@@ -93,27 +106,39 @@ enum ScrollStitcher {
         }
         guard let first = raster(previous), let second = raster(next),
               Int(first.max() ?? 0) - Int(first.min() ?? 0) > 12 else { return nil }
+        // Fixed sidebars produce no same-position motion. Exclude those columns
+        // so an inner scroll container can be matched independently of its shell.
+        let movingColumns = Swift.stride(from: 4, to: width - 4, by: 2).filter { x in
+            var delta = 0, count = 0
+            for y in Swift.stride(from: 0, to: height, by: max(1, height / 160)) {
+                delta += abs(Int(first[y * width + x]) - Int(second[y * width + x])); count += 1
+            }
+            return count > 0 && Double(delta) / Double(count) > 0.6
+        }
+        guard movingColumns.count >= 3 else { return nil }
         var best: (rows: Int, error: Double)?
-        for rows in max(24, height / 10)...(height - 4) {
-            var sum = 0, samples = 0, texturedRows = 0
+        for rows in Swift.stride(from: height - 4, through: max(24, height / 10), by: -1) {
+            var rowScores: [Double] = [], samples = 0
             let step = max(1, rows / 90)
             for y in Swift.stride(from: 0, to: rows, by: step) {
-                var contentOnRow = 0
-                for x in Swift.stride(from: 4, to: width - 4, by: 2) {
+                var error = 0, content = 0
+                for x in movingColumns {
                     let ai = (height - rows + y) * width + x, bi = y * width + x
                     let a = Int(first[ai]), b = Int(second[bi])
-                    let edgeA = abs(a - Int(first[ai - 2])), edgeB = abs(b - Int(second[bi - 2]))
-                    // Only compare informative content, rather than vast uniform margins.
-                    guard edgeA > 3 || edgeB > 3 else { continue }
-                    sum += abs(a - b); samples += 1; contentOnRow += 1
+                    guard abs(a - Int(first[ai - 2])) > 3 || abs(b - Int(second[bi - 2])) > 3 else { continue }
+                    error += abs(a - b); content += 1
                 }
-                if contentOnRow > 0 { texturedRows += 1 }
+                if content > 0 { rowScores.append(Double(error) / Double(content)); samples += content }
             }
-            guard samples >= 30, texturedRows >= 4 else { continue }
-            let error = Double(sum) / Double(samples)
-            if best == nil || error < best!.error { best = (rows, error) }
+            guard samples >= 30, rowScores.count >= 8 else { continue }
+            // Sticky headers/footers are outliers, not evidence against matching body rows.
+            rowScores.sort()
+            let keep = max(6, Int(Double(rowScores.count) * 0.72))
+            let score = rowScores.prefix(keep).reduce(0, +) / Double(keep)
+            if score < 0.01 { return rows }
+            if best == nil || score < best!.error { best = (rows, score) }
         }
-        guard let best, best.error < 18 else { return nil }
+        guard let best, best.error < 14 else { return nil }
         return best.rows
     }
     static func append(_ next: CGImage, to result: CGImage, overlap: Int) throws -> CGImage {
