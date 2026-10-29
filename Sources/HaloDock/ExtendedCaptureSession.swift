@@ -15,6 +15,7 @@ final class ExtendedCaptureSession: ObservableObject {
     @Published private(set) var busy = false
     @Published private(set) var recording = false
     @Published private(set) var completed = false
+    @Published private(set) var capturedFrames = 0
     @Published private(set) var count = 1
     @Published private(set) var elapsed = 0
     @Published private(set) var thumbnail: NSImage?
@@ -95,6 +96,7 @@ final class ExtendedCaptureSession: ObservableObject {
                     let next = try await self.frame()
                     try Task.checkCancellation()
                     guard self.scrollPhase == .capturing, generation == self.scrollGeneration else { return }
+                    self.capturedFrames += 1
                     self.busy = true
                     _ = try await self.merge(next, force: false, automatic: true, generation: generation)
                     guard generation == self.scrollGeneration, !Task.isCancelled else { return }
@@ -266,7 +268,7 @@ private struct ExtendedCaptureControls: View {
                         if let thumbnail = session.thumbnail { Image(nsImage: thumbnail).resizable().scaledToFit().frame(width: 48, height: 64) }
                         VStack(alignment: .leading, spacing: 5) {
                             Label(session.scrollPhase == .capturing ? "正在自动拼接" : session.scrollPhase == .paused ? "采集已暂停" : "准备开始", systemImage: session.scrollPhase == .capturing ? "record.circle" : "scroll")
-                            Text("\(session.outputImage.height) px 高 · \(session.count) 段").font(.caption).foregroundStyle(.secondary)
+                            Text("\(session.outputImage.height) px 高 · \(session.count) 段 · 已读取 \(session.capturedFrames) 帧").font(.caption).monospacedDigit().foregroundStyle(.secondary)
                         }
                     }
                     HStack {

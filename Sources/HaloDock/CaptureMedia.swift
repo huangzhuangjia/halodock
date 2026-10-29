@@ -76,39 +76,45 @@ enum CaptureImage {
 /// Match bottom/top overlap using a small grayscale raster. Never silently append an unmatchable page.
 enum ScrollStitcher {
     static func overlap(previous: CGImage, next: CGImage) -> Int? {
-        guard previous.width == next.width, previous.height == next.height, previous.height >= 64 else { return nil }
-        let height = min(700, previous.height), width = 48
+        guard previous.width == next.width, previous.height == next.height,
+              previous.height >= 64, previous.height <= 10000 else { return nil }
+        // Preserve vertical pixel coordinates. Reducing both axes independently
+        // loses text alignment and lets blank margins dominate the match score.
+        let height = previous.height, width = 128
         func raster(_ image: CGImage) -> [UInt8]? {
             var bytes = [UInt8](repeating: 0, count: width * height)
-            let success = bytes.withUnsafeMutableBytes { buffer -> Bool in
-                guard let ctx = CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width, space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return false }
+            let ok = bytes.withUnsafeMutableBytes { buffer -> Bool in
+                guard let ctx = CGContext(data: buffer.baseAddress, width: width, height: height,
+                    bitsPerComponent: 8, bytesPerRow: width, space: CGColorSpaceCreateDeviceGray(), bitmapInfo: 0) else { return false }
                 ctx.interpolationQuality = .low
                 ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height)); return true
             }
-            return success ? bytes : nil
+            return ok ? bytes : nil
         }
-        guard let first = raster(previous), let second = raster(next) else { return nil }
-        // CG bitmap rows are top-to-bottom for the supplied image; fixture tests verify this convention.
-        let variance = first.max().map { Int($0) - Int(first.min() ?? 0) } ?? 0
-        guard variance > 12 else { return nil }
+        guard let first = raster(previous), let second = raster(next),
+              Int(first.max() ?? 0) - Int(first.min() ?? 0) > 12 else { return nil }
         var best: (rows: Int, error: Double)?
-        let minOverlap = max(24, height / 10)
-        for rows in minOverlap...(height - 8) {
-            let strideY = max(1, rows / 55)
-            var sum = 0, samples = 0, variation = 0
-            for y in Swift.stride(from: 0, to: rows, by: strideY) {
-                for x in Swift.stride(from: 3, to: width - 3, by: 2) {
-                    let a = Int(first[(height - rows + y) * width + x]), b = Int(second[y * width + x])
-                    sum += abs(a - b); samples += 1
-                    if x > 3 { variation += abs(a - Int(first[(height - rows + y) * width + x - 2])) }
+        for rows in max(24, height / 10)...(height - 4) {
+            var sum = 0, samples = 0, texturedRows = 0
+            let step = max(1, rows / 90)
+            for y in Swift.stride(from: 0, to: rows, by: step) {
+                var contentOnRow = 0
+                for x in Swift.stride(from: 4, to: width - 4, by: 2) {
+                    let ai = (height - rows + y) * width + x, bi = y * width + x
+                    let a = Int(first[ai]), b = Int(second[bi])
+                    let edgeA = abs(a - Int(first[ai - 2])), edgeB = abs(b - Int(second[bi - 2]))
+                    // Only compare informative content, rather than vast uniform margins.
+                    guard edgeA > 3 || edgeB > 3 else { continue }
+                    sum += abs(a - b); samples += 1; contentOnRow += 1
                 }
+                if contentOnRow > 0 { texturedRows += 1 }
             }
-            guard samples > 0, Double(variation) / Double(samples) > 1.2 else { continue }
+            guard samples >= 30, texturedRows >= 4 else { continue }
             let error = Double(sum) / Double(samples)
             if best == nil || error < best!.error { best = (rows, error) }
         }
-        guard let best, best.error < 12 else { return nil }
-        return Int((Double(best.rows) / Double(height) * Double(previous.height)).rounded())
+        guard let best, best.error < 18 else { return nil }
+        return best.rows
     }
     static func append(_ next: CGImage, to result: CGImage, overlap: Int) throws -> CGImage {
         guard next.width == result.width, overlap >= 0, overlap < next.height else { throw WorkError("拼接尺寸不一致") }
@@ -122,7 +128,7 @@ enum ScrollStitcher {
     }
     static func difference(_ a: CGImage, _ b: CGImage) -> Double {
         guard a.width == b.width, a.height == b.height else { return 255 }
-        let width = 64, height = min(160, max(16, a.height * width / max(1, a.width)))
+        let width = 128, height = min(6000, a.height)
         func raster(_ image: CGImage) -> [UInt8]? {
             var bytes = [UInt8](repeating: 0, count: width * height)
             let ok = bytes.withUnsafeMutableBytes { ptr -> Bool in
@@ -133,7 +139,17 @@ enum ScrollStitcher {
             return ok ? bytes : nil
         }
         guard let first = raster(a), let second = raster(b) else { return 255 }
-        return Double(zip(first, second).reduce(0) { $0 + abs(Int($1.0) - Int($1.1)) }) / Double(first.count)
+        var error = 0, content = 0
+        for y in Swift.stride(from: 0, to: height, by: max(1, height / 500)) {
+            for x in 2..<(width - 2) {
+                let index = y * width + x
+                let va = Int(first[index]), vb = Int(second[index])
+                // Uniform backgrounds must not hide moving foreground text.
+                guard abs(va - Int(first[index - 1])) > 2 || abs(vb - Int(second[index - 1])) > 2 || abs(va - vb) > 4 else { continue }
+                error += abs(va - vb); content += 1
+            }
+        }
+        return content == 0 ? 0 : Double(error) / Double(content)
     }
     static func isDuplicate(_ a: CGImage, _ b: CGImage) -> Bool { difference(a, b) < 0.8 }
 
