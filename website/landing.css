@@ -10,6 +10,7 @@
 .launch-intro h1 { font-size:clamp(48px,6.2vw,78px); line-height:1.17; letter-spacing:-3.5px; font-weight:650; margin:24px 0 22px; }
 .launch-intro h1>span { color:#73787e; }
 .launch-description { font-size:17px; color:var(--muted); line-height:1.85; }
+.wake-context { max-width:600px; margin:18px auto 0; color:var(--muted); font-size:13px; line-height:1.8; padding-inline:12px; }
 .launch-actions { display:flex; align-items:center; justify-content:center; gap:25px; margin-top:28px; }
 .launch-actions .primary { background:var(--ink); border-color:var(--ink); color:white; font-weight:550; min-height:48px; padding:13px 23px; font-size:14px; box-shadow:none; }
 .launch-actions .primary:hover { background:#3a3d41; transform:translateY(-1px); box-shadow:0 4px 14px #20212413; }
