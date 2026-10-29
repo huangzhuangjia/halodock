@@ -219,26 +219,14 @@ html:not(.story-ready) .story-status-well { height:300px; }
   .story-status { padding-top:0; }
 }
 
-/* Dock previews: discoverable setup, requirements and ownership. */
-.dock-preview { display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.3fr); align-items:center; gap:64px; padding-block:100px; }
-.dock-preview .launch-eyebrow { justify-content:flex-start; }
-.dock-preview h2 { font-size:clamp(32px,3.5vw,46px); line-height:1.35; letter-spacing:-1.6px; font-weight:600; margin:18px 0 20px; }
-.dock-preview h2>span { color:#8a8f94; }
-.dock-preview-description { color:var(--muted); font-size:14px; line-height:1.95; }
-.dock-preview-requirements { display:flex; flex-wrap:wrap; gap:8px; margin-top:19px; }
-.dock-preview-requirements span { padding:6px 10px; border-radius:20px; border:1px solid #e0e4df; color:#69716c; font-size:10px; }
-.dock-preview-steps { list-style:none; padding:0; margin:27px 0 22px; display:flex; flex-direction:column; gap:18px; }
-.dock-preview-steps li { display:flex; align-items:flex-start; gap:12px; }
-.dock-preview-steps li>span { flex:none; width:24px; height:24px; border-radius:50%; background:#ee704f10; color:#bf5438; display:grid; place-items:center; font-size:11px; font-weight:600; }
-.dock-preview-steps strong { display:block; font-size:13px; font-weight:600; line-height:1.7; }
-.dock-preview-steps p { color:var(--muted); font-size:12px; line-height:1.85; margin-top:4px; }
-.dock-preview-note { font-size:11px; color:#7a817c; line-height:1.85; }
-.dock-preview-settings { min-width:0; }
-.dock-preview-settings .settings-enlarge>img { border-color:#dde2da; box-shadow:0 20px 55px #25332612; }
-.dock-preview-settings figcaption { font-size:10px; color:#7a817c; text-align:center; line-height:1.7; margin-top:16px; }
-.dock-preview-identity { display:flex; align-items:flex-start; gap:10px; padding:16px 18px; margin-top:23px; border:1px solid #e0e4df; border-radius:12px; background:#f5f6f3; }
-.dock-preview-identity>svg { flex:none; width:16px; height:16px; margin-top:2px; fill:none; stroke:#788477; stroke-width:1.3; stroke-linecap:round; }
-.dock-preview-identity p { font-size:11px; color:#7a817c; line-height:1.85; }
-.dock-preview-identity strong { color:#59645a; font-weight:600; }
-@media(max-width:1000px) { .dock-preview { gap:35px; grid-template-columns:minmax(0,1fr) minmax(0,1.15fr); } }
-@media(max-width:760px) { .dock-preview { display:flex; flex-direction:column; align-items:stretch; gap:30px; padding-block:65px; } .dock-preview h2 { font-size:34px; } .dock-preview-description { font-size:13px; } .dock-preview-steps { margin-block:22px; } }
+/* Five chapters share a single feature showcase. */
+.story-track { height:450vh; }
+.story-controls { gap:10px; }
+.story-controls button { min-width:40px; }
+@media(max-width:760px) {
+  .story-track { height:380vh; }
+  .story-controls { gap:12px; }
+  .story-controls button { min-width:42px; }
+}
+html:not(.story-ready) .story-track { height:auto; }
+@media(prefers-reduced-motion:reduce) { .story-track { height:auto; } }

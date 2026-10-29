@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import ImageIO
 import Testing
 @testable import HaloDock
@@ -144,4 +145,53 @@ private func scrollingFixture() throws -> CGImage {
     report.description = String(repeating: "长内容", count: 2000)
     #expect(!report.canOpenDraft)
     #expect(report.body.contains(report.description))
+}
+
+@Test @MainActor func collectedMarkdownUsesFormattedPreviewAndCopyKeepsOriginalSource() async throws {
+    _ = NSApplication.shared
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("HaloDock-MarkdownTextTests-\(UUID())")
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = WorkbenchStore(directory: directory)
+    let markdown = "# 设计与实现计划\n\n## 定位与使用方式\n\n**重要说明**\n\n- 第一项\n- 第二项\n\n```swift\nlet value = 42\n```"
+    #expect(store.add(text: markdown))
+    let item = try #require(store.items.first)
+    func render<V: View>(_ view: V) async throws -> Data {
+        let host = NSHostingView(rootView: view)
+        let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 640, height: 520), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = host; window.orderFront(nil)
+        defer { window.close() }
+        try await Task.sleep(for: .milliseconds(120))
+        host.layoutSubtreeIfNeeded()
+        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        return try #require(bitmap.representation(using: .png, properties: [:]))
+    }
+    let formatted = try await render(MarkdownTextPreview(text: markdown, source: .constant(false)))
+    let source = try await render(MarkdownTextPreview(text: markdown, source: .constant(true)))
+    #expect(formatted != source)
+    _ = try await render(WorkItemPreview(store: store, item: item))
+    let board = NSPasteboard(name: .init("HaloDock.MarkdownCopy.\(UUID())"))
+    defer { board.releaseGlobally() }
+    store.copy(item, board: board)
+    #expect(board.string(forType: .string) == markdown)
+    #expect(store.items.first?.text == markdown)
+}
+
+@Test @MainActor func continuousScrollingStitchesEveryMovingFrameWithoutWaitingForAStop() async throws {
+    let image = try scrollingFixture(), screen = try #require(NSScreen.main)
+    let initial = try #require(image.cropping(to: CGRect(x: 0, y: 0, width: 160, height: 500)))
+    var position = 0
+    let session = ExtendedCaptureSession(mode: .scroll, screen: screen, selection: CGRect(x: 0, y: 0, width: 160, height: 500), initial: initial, captureFrame: {
+        position = min(position + 80, 640)
+        return try #require(image.cropping(to: CGRect(x: 0, y: position, width: 160, height: 500)))
+    })
+    defer { session.close() }
+    session.startScroll()
+    for _ in 0..<150 where session.count < 9 { try await Task.sleep(for: .milliseconds(20)) }
+    session.pauseScroll()
+    #expect(session.count == 9)
+    #expect(session.outputImage.height == 1140)
+    #expect(position == 640)
+    let expected = try #require(image.cropping(to: CGRect(x: 0, y: 0, width: 160, height: 1140)))
+    #expect(ScrollStitcher.difference(session.outputImage, expected) < 1)
 }

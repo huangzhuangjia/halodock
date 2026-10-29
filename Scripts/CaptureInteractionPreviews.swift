@@ -114,6 +114,11 @@ struct InteractionPreviewView: View {
                     try await render(DocumentFilePreview(url: md).padding(20).background(Color(nsColor: .windowBackgroundColor)).modifier(HaloDockTheme()), path: directory.appendingPathComponent("markdown.png"))
                     try await render(DocumentFilePreview(url: pdf).padding(20).background(Color(nsColor: .windowBackgroundColor)).modifier(HaloDockTheme()), path: directory.appendingPathComponent("pdf.png"))
                     try await render(FeedbackView(), path: directory.appendingPathComponent("feedback.png"), size: CGSize(width: 600, height: 620))
+                    let copiedText = try String(contentsOf: md, encoding: .utf8)
+                    _ = store.add(text: copiedText, title: "收集的 Markdown 文本")
+                    if let item = store.currentItems.first(where: { $0.kind == .text }) {
+                        try await render(WorkItemPreview(store: store, item: item), path: directory.appendingPathComponent("collected-markdown.png"), size: CGSize(width: 640, height: 520))
+                    }
                 } catch { FileHandle.standardError.write(Data(error.localizedDescription.utf8)) }
                 try? FileManager.default.removeItem(at: temporary)
                 app.terminate(nil)

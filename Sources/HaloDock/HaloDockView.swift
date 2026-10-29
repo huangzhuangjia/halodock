@@ -28,7 +28,6 @@ struct HaloDockView: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 header
-                SceneSwitcher(scenes: scenes).padding(.top, 14)
                 if updates.availableRelease != nil || updates.hasPreparedUpdate {
                     Button {
                         openSettings()

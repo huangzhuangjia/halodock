@@ -75,15 +75,7 @@ struct DocumentFilePreview: View {
             else if let error {
                 VStack(spacing: 12) { Image(systemName: "doc.badge.ellipsis").font(.largeTitle); Text(error).foregroundStyle(.secondary); Button("在 Finder 中显示") { NSWorkspace.shared.activateFileViewerSelecting([url]) } }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let text {
-                ScrollView([.vertical, .horizontal]) {
-                    if markdown && !source {
-                        VStack(alignment: .leading, spacing: 12) {
-                            ForEach(MarkdownDocument.blocks(text)) { block in blockView(block) }
-                        }.frame(width: 560, alignment: .leading).padding(16).textSelection(.enabled)
-                    } else {
-                        Text(text).font(.system(size: 12, design: .monospaced)).textSelection(.enabled).padding(12).frame(minWidth: 560, alignment: .leading)
-                    }
-                }.background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+                MarkdownTextPreview(text: text, formatted: markdown, showsModePicker: false, source: $source)
             } else if url.pathExtension.lowercased() == "pdf" {
                 PDFDocumentPreview(url: url).frame(maxWidth: .infinity, maxHeight: .infinity)
             } else { SystemDocumentPreview(url: url).frame(maxWidth: .infinity, maxHeight: .infinity) }
@@ -103,6 +95,41 @@ struct DocumentFilePreview: View {
                 }.value
             } catch { self.error = "无法预览：" + error.localizedDescription }
             loading = false
+        }
+        .environment(\.openURL, OpenURLAction { link in
+            guard ["http", "https", "mailto"].contains(link.scheme?.lowercased() ?? "") else { return .discarded }
+            return .systemAction
+        })
+    }
+}
+
+/// File previews and collected text use the same renderer and source switch.
+struct MarkdownTextPreview: View {
+    let text: String
+    var formatted = true
+    var showsModePicker = true
+    @Binding var source: Bool
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if showsModePicker {
+                HStack {
+                    Label("文本预览", systemImage: "text.alignleft").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Picker("预览方式", selection: $source) {
+                        Text("排版").tag(false)
+                        Text("源码").tag(true)
+                    }.pickerStyle(.segmented).labelsHidden().frame(width: 140)
+                }
+            }
+            ScrollView([.vertical, .horizontal]) {
+                if formatted && !source {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(MarkdownDocument.blocks(text)) { block in blockView(block) }
+                    }.frame(width: 560, alignment: .leading).padding(16).textSelection(.enabled)
+                } else {
+                    Text(text).font(.system(size: 12, design: .monospaced)).textSelection(.enabled).padding(12).frame(minWidth: 560, alignment: .leading)
+                }
+            }.background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
         }
         .environment(\.openURL, OpenURLAction { link in
             guard ["http", "https", "mailto"].contains(link.scheme?.lowercased() ?? "") else { return .discarded }

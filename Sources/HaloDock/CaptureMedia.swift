@@ -33,6 +33,32 @@ enum DisplayCapture {
     }
 }
 
+/// Reuse display discovery and filters across successive frames instead of querying every sample.
+@MainActor
+final class DisplayCaptureSource {
+    let screen: NSScreen
+    private var filter: SCContentFilter?
+    private var configuration: SCStreamConfiguration?
+    init(screen: NSScreen) { self.screen = screen }
+    func image() async throws -> CGImage {
+        guard #available(macOS 14.0, *) else { return try await DisplayCapture.image(screen: screen, excludingOwnWindows: true) }
+        if filter == nil {
+            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            guard let id = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value,
+                  let display = content.displays.first(where: { $0.displayID == id }) else { throw WorkError("显示器已断开，请重新选择") }
+            let controls = Set(NSApp.windows.filter { $0.identifier?.rawValue == "HaloDockCaptureControls" }.map { CGWindowID($0.windowNumber) })
+            filter = SCContentFilter(display: display, excludingWindows: content.windows.filter { controls.contains($0.windowID) })
+            let config = SCStreamConfiguration()
+            config.width = Int(screen.frame.width * screen.backingScaleFactor)
+            config.height = Int(screen.frame.height * screen.backingScaleFactor)
+            config.showsCursor = false
+            configuration = config
+        }
+        guard let filter, let configuration else { throw WorkError("无法准备屏幕采集") }
+        return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
+    }
+}
+
 enum CaptureImage {
     static func resized(_ image: CGImage, maxWidth: Int) -> CGImage? {
         guard image.width > maxWidth else { return image }

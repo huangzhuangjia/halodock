@@ -38,13 +38,25 @@
   addEventListener('scroll', schedule, {passive:true});
   addEventListener('resize', schedule, {passive:true});
   reduced.addEventListener('change', () => { current = -1; schedule(); });
-  controls.forEach((button, index) => button.addEventListener('click', () => {
-    if (!track || staticMode()) return;
+  const jumpTo = index => {
+    if (!track || index < 0 || index >= pages.length) return;
+    if (staticMode()) {
+      pages[index].scrollIntoView({block:'start', behavior:'auto'});
+      return;
+    }
     const top = innerWidth <= 760 ? 66 : 74;
     const distance = Math.max(1, track.offsetHeight - (innerHeight - top));
     const destination = scrollY + track.getBoundingClientRect().top - top + distance * (index + 0.18) / pages.length;
     scrollTo({top:destination, behavior:reduced.matches ? 'auto' : 'smooth'});
+  };
+  controls.forEach((button, index) => button.addEventListener('click', () => jumpTo(index)));
+  document.querySelectorAll('a[href="#dock-preview"]').forEach(link => link.addEventListener('click', event => {
+    event.preventDefault();
+    history.pushState(null, '', '#dock-preview');
+    jumpTo(4);
   }));
+  addEventListener('hashchange', () => { if (location.hash === '#dock-preview') jumpTo(4); });
+  addEventListener('load', () => { if (location.hash === '#dock-preview') jumpTo(4); }, {once:true});
   document.documentElement.classList.toggle('story-ready', !staticMode());
   reduced.addEventListener('change', () => document.documentElement.classList.toggle('story-ready', !staticMode()));
   update();

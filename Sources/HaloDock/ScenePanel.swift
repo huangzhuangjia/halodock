@@ -40,19 +40,7 @@ final class ScenePanel: ObservableObject {
     private let defaults: UserDefaults
     var scenes: [PanelScene] { data.scenes }
     var current: PanelScene { data.scenes.first { $0.id == data.selected } ?? data.scenes[0] }
-    static func presets() -> [PanelScene] {
-        let daily = PanelScene(name: "日常", symbol: "sun.max")
-        var work = PanelScene(name: "工作", symbol: "desktopcomputer")
-        work.widgets = [.init(widget: .memory, size: .large), .init(widget: .storage, size: .large), .init(widget: .network, size: .small), .init(widget: .battery, size: .small)]
-        work.actions = ["screenshot", "awake", "closedLid", "focus"]
-        var meeting = PanelScene(name: "会议", symbol: "person.2")
-        meeting.widgets = [.init(widget: .battery, size: .small), .init(widget: .network, size: .small)]
-        meeting.actions = ["focus", "awake", "screenshot"]; meeting.showClipboard = false
-        var download = PanelScene(name: "下载", symbol: "arrow.down.circle")
-        download.widgets = [.init(widget: .storage, size: .large), .init(widget: .network), .init(widget: .battery)]
-        download.actions = ["awake", "closedLid"]; download.showClipboard = false
-        return [daily, work, meeting, download]
-    }
+    static func presets() -> [PanelScene] { [PanelScene(name: "面板", symbol: "desktopcomputer")] }
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         let presets = Self.presets()
@@ -60,16 +48,17 @@ final class ScenePanel: ObservableObject {
         if let saved = defaults.data(forKey: "scenePanels"), let decoded = try? JSONDecoder().decode(SceneData.self, from: saved),
            !decoded.scenes.isEmpty, decoded.scenes.count <= 12, Set(decoded.scenes.map(\.id)).count == decoded.scenes.count,
            decoded.scenes.allSatisfy({ Set($0.widgets.map(\.widget)).count == $0.widgets.count && $0.widgets.count <= 4 }) {
-            data = decoded
+            // Adopt the selected layout from older multi-scene preferences.
+            let chosen = decoded.scenes.first { $0.id == decoded.selected } ?? decoded.scenes[0]
+            data = SceneData(scenes: [chosen], selected: chosen.id)
         } else {
             data.scenes[0].actions = QuickAction.ordered(defaults.string(forKey: "quickActionOrder") ?? "").filter { !QuickAction.hidden(defaults.string(forKey: "hiddenQuickActions") ?? "").contains($0.rawValue) }.map(\.rawValue)
         }
     }
     private func commit(_ next: SceneData) {
         do { let bytes = try JSONEncoder().encode(next); defaults.set(bytes, forKey: "scenePanels"); data = next; message = nil }
-        catch { message = "场景保存失败：" + error.localizedDescription }
+        catch { message = "面板保存失败：" + error.localizedDescription }
     }
-    func select(_ id: UUID) { guard scenes.contains(where: { $0.id == id }) else { return }; var next = data; next.selected = id; commit(next) }
     func update(_ scene: PanelScene) {
         guard let index = data.scenes.firstIndex(where: { $0.id == scene.id }) else { return }
         var next = data; next.scenes[index] = scene; commit(next)
@@ -81,25 +70,12 @@ final class ScenePanel: ObservableObject {
         else { scene.widgets.append(.init(widget: widget, visible: value)) }
         update(scene)
     }
-    func duplicate() {
-        guard scenes.count < 12 else { message = "最多 12 个场景"; return }
-        var copy = current; copy.id = UUID(); copy.name = String(copy.name.prefix(20)) + " 副本"
-        var next = data; next.scenes.append(copy); next.selected = copy.id; commit(next)
-    }
-    func remove() { guard scenes.count > 1 else { return }; var next = data; next.scenes.removeAll { $0.id == next.selected }; next.selected = next.scenes[0].id; commit(next) }
     func reset() { let presets = Self.presets(); commit(.init(scenes: presets, selected: presets[0].id)) }
 }
 
 struct ScenePanelSettings: View {
     @ObservedObject var scenes: ScenePanel = .shared
     var body: some View {
-        Section("当前场景") {
-            Picker("场景", selection: Binding(get: { scenes.current.id }, set: scenes.select)) { ForEach(scenes.scenes) { Text($0.name).tag($0.id) } }
-            TextField("名称", text: Binding(get: { scenes.current.name }, set: { var next = scenes.current; next.name = String($0.prefix(30)); scenes.update(next) }))
-            HStack { Button("复制场景") { scenes.duplicate() }; Button("删除场景", role: .destructive) { scenes.remove() }.disabled(scenes.scenes.count == 1) }
-            Text("切换场景只调整面板内容，不会自动开启唤醒或修改系统设置。")
-                .font(.caption).foregroundStyle(.secondary)
-        }
         Section("状态组件") {
             ForEach(StatusWidget.allCases) { widget in
                 HStack {
@@ -113,7 +89,7 @@ struct ScenePanelSettings: View {
             Text("小：紧凑数值；中：图标、数值与进度条；大：占满一行并显示更多说明。网络表示连接状态。")
                 .font(.caption).foregroundStyle(.secondary)
         }
-        Section("场景内容") {
+        Section("快捷操作与内容") {
             Toggle("显示最近复制", isOn: Binding(get: { scenes.current.showClipboard }, set: { var next = scenes.current; next.showClipboard = $0; scenes.update(next) }))
             Toggle("显示工作台和文本片段", isOn: Binding(get: { scenes.current.showWorkbench }, set: { var next = scenes.current; next.showWorkbench = $0; scenes.update(next) }))
             ForEach(QuickAction.allCases) { action in

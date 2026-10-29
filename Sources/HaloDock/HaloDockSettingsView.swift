@@ -156,7 +156,7 @@ struct HaloDockSettingsView: View {
         case .panel:
             ScenePanelSettings()
             ToolPreferencesSections(category: .panel)
-            Section { Button("恢复默认场景") { ScenePanel.shared.reset() } }
+            Section { Button("恢复默认面板") { ScenePanel.shared.reset() } }
         case .dockPreview:
             DockPreviewSettings()
         case .workbench:

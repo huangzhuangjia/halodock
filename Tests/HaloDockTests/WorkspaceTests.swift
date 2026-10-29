@@ -67,23 +67,26 @@ private func patternImage(width: Int = 180, height: Int = 900) throws -> CGImage
     #expect(try Data(contentsOf: url) == invalid)
 }
 
-@Test @MainActor func scenePanelsRestoreCustomSizesVisibilityAndSelectedScene() throws {
-    let name = "HaloDock.SceneTests.\(UUID())", defaults = try #require(UserDefaults(suiteName: name))
+@Test @MainActor func singlePanelRetainsWidgetSizesVisibilityAndLegacySelectedLayout() throws {
+    let name = "HaloDock.PanelTests.\(UUID())", defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }
     defaults.set("trash,screenshot", forKey: "quickActionOrder")
     defaults.set("focus", forKey: "hiddenQuickActions")
-    let scenes = ScenePanel(defaults: defaults)
-    #expect(scenes.scenes.count == 4)
-    #expect(!scenes.current.actions.contains("focus"))
-    scenes.select(try #require(scenes.scenes.first { $0.name == "工作" }).id)
-    scenes.setSize(.memory, .large); scenes.setVisible(.network, false)
-    scenes.duplicate()
-    #expect(scenes.current.name.contains("副本"))
+    let panel = ScenePanel(defaults: defaults)
+    #expect(panel.scenes.count == 1)
+    #expect(!panel.current.actions.contains("focus"))
+    panel.setSize(.memory, .large); panel.setVisible(.network, false)
     let restored = ScenePanel(defaults: defaults)
-    #expect(restored.current == scenes.current)
+    #expect(restored.current == panel.current && restored.scenes.count == 1)
     #expect(restored.current.widgets.first { $0.widget == .memory }?.size == .large)
     #expect(restored.current.widgets.first { $0.widget == .network }?.visible == false)
-    restored.remove(); #expect(restored.scenes.count == 4)
+    let selected = PanelScene(name: "旧工作布局", symbol: "desktopcomputer", actions: ["screenshot"])
+    struct Legacy: Codable { let scenes: [PanelScene]; let selected: UUID }
+    defaults.set(try JSONEncoder().encode(Legacy(scenes: [PanelScene(name: "日常", symbol: "sun.max"), selected], selected: selected.id)), forKey: "scenePanels")
+    let migrated = ScenePanel(defaults: defaults)
+    #expect(migrated.scenes.count == 1 && migrated.current.id == selected.id && migrated.current.actions == ["screenshot"])
+    migrated.setVisible(.storage, false)
+    #expect(ScenePanel(defaults: defaults).current.id == selected.id)
 }
 
 @Test func screenshotActionsAcceptOnlyWebLinksAndExportMarkdown() {

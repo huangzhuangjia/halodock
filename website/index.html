@@ -11,7 +11,7 @@
   <meta property="og:image" content="https://huangzhuangjia.github.io/halodock/assets/logo.png">
   <link rel="icon" href="./assets/logo.png" type="image/png">
   <link rel="stylesheet" href="./style.css?v=0.4.0">
-  <link rel="stylesheet" href="./landing.css?v=0.4.1-dock">
+  <link rel="stylesheet" href="./landing.css?v=0.4.1-story5">
   <title>HaloDock — 小事交给它。</title>
 </head>
 <body>
@@ -54,16 +54,18 @@
       <div class="story-sticky shell">
         <div class="story-copy">
           <div class="story-pages">
-            <article class="story-page is-active" data-story-page="0"><span class="story-number">01 / 一眼掌握</span><h3>Mac 的状态，<br>心里有数。</h3><p>电池、内存和硬盘余量，打开就能看到。切换日常、工作、会议、下载场景，让常用工具按任务就位。</p><span class="story-note">场景面板 · 真实系统状态</span></article>
+            <article class="story-page is-active" data-story-page="0"><span class="story-number">01 / 一眼掌握</span><h3>Mac 的状态，<br>心里有数。</h3><p>电池、内存和硬盘余量，打开就能看到。组件尺寸、显示内容和操作顺序，都能按习惯调整。</p><span class="story-note">自定义面板 · 真实系统状态</span></article>
             <article class="story-page" data-story-page="1"><span class="story-number">02 / 顺手处理</span><h3>截下来。<br>接着就能做。</h3><p>选好范围，原地标注、识字或贴到桌面。想留下整段内容？滚动截图和 GIF，也在同一条工具栏里。</p><span class="story-note">截图行动卡 · 本机识字</span></article>
             <article class="story-page" data-story-page="2"><span class="story-number">03 / 放在一起</span><h3>围绕一件事，<br>收在一个地方。</h3><p>把截图、文字和文件收进同一个工作台。选择目标再保存，常用回复还能变成随时复制的文本片段。</p><span class="story-note">工作台 · 快捷文本片段</span></article>
             <article class="story-page" data-story-page="3"><span class="story-number">04 / 接着阅读</span><h3>资料在眼前。<br>思路连起来。</h3><p>Markdown 直接看排版，代码可看源码，PDF 原地阅读。需要的时候再导出、复制，继续手头的工作。</p><span class="story-note">文档预览 · Markdown 导出</span></article>
+            <article class="story-page" data-story-page="4" id="dock-preview"><span class="story-number">05 / 快速切换</span><h3>悬停一下。<br>找到那个窗口。</h3><p>鼠标停在 Dock 的 App 或 Finder 图标上，查看窗口缩略图，点击就能切换。</p><span class="story-note">设置 → Dock 预览开启<br>macOS 14+ · 需辅助功能与屏幕录制权限</span></article>
           </div>
           <div class="story-controls" role="group" aria-label="功能介绍章节">
             <button type="button" data-story-jump="0" aria-label="查看状态面板" aria-pressed="true"><span></span>状态</button>
             <button type="button" data-story-jump="1" aria-label="查看截图功能" aria-pressed="false"><span></span>截图</button>
             <button type="button" data-story-jump="2" aria-label="查看工作台" aria-pressed="false"><span></span>收集</button>
             <button type="button" data-story-jump="3" aria-label="查看文档预览" aria-pressed="false"><span></span>阅读</button>
+            <button type="button" data-story-jump="4" aria-label="查看 Dock 预览" aria-pressed="false"><span></span>Dock</button>
           </div>
         </div>
         <div class="story-visuals" aria-live="off">
@@ -71,48 +73,23 @@
           <figure class="story-visual story-capture" data-story-visual="1"><button class="image-button" data-image-preview data-title="截图行动卡" aria-label="放大查看截图行动卡"><img src="./assets/screenshot-actions.png" width="2400" height="1600" alt="选区内识字、标注、滚动截图和 GIF 入口"></button><figcaption>选区内继续操作，无需进入第二个编辑页面。</figcaption></figure>
           <figure class="story-visual story-workbench" data-story-visual="2"><button class="image-button" data-image-preview data-title="工作台" aria-label="放大查看工作台"><img src="./assets/workbench.png" width="1720" height="1240" alt="工作台里的截图、文字与发布资料"></button><figcaption>围绕任务整理，重启之后还在。</figcaption></figure>
           <figure class="story-visual story-markdown" data-story-visual="3"><button class="image-button" data-image-preview data-title="Markdown 文档预览" aria-label="放大查看 Markdown 文档预览"><img src="./assets/markdown.png" width="1720" height="1240" alt="Markdown 文件的标题、列表、代码块和表格预览"></button><figcaption>本机预览，支持排版与源码切换。</figcaption></figure>
+          <figure class="story-visual story-dock" data-story-visual="4"><button class="image-button" data-image-preview data-title="Dock 预览 · 开启与权限" aria-label="放大查看 Dock 预览设置和权限说明"><img src="./assets/dock-preview-settings.png" width="1600" height="1240" alt="Dock 预览设置，包含开启开关和两项权限入口"></button><figcaption>默认关闭 · 无法捕获的窗口显示占位卡，效果以实际窗口状态为准。</figcaption></figure>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="dock-preview section shell" id="dock-preview" aria-labelledby="dock-preview-heading">
-    <div class="dock-preview-copy" data-reveal>
-      <p class="launch-eyebrow">DOCK 窗口预览</p>
-      <h2 id="dock-preview-heading">悬停一下。<br><span>找到那个窗口。</span></h2>
-      <p class="dock-preview-description">鼠标停在 Dock 的 App 图标上，查看已打开的窗口缩略图。Finder 也支持，点击预览就能切换到对应窗口。</p>
-      <div class="dock-preview-requirements"><span>macOS 14+</span><span>默认关闭</span><span>本机临时预览</span></div>
-      <ol class="dock-preview-steps">
-        <li><span aria-hidden="true">1</span><div><strong>打开开关</strong><p>HaloDock 设置 → Dock 预览 → 开启“悬停 Dock 图标预览窗口”。</p></div></li>
-        <li><span aria-hidden="true">2</span><div><strong>允许两项权限</strong><p>按页面引导允许“辅助功能”和“屏幕录制”；若系统提示重启 App，重新打开后再试。</p></div></li>
-        <li><span aria-hidden="true">3</span><div><strong>悬停查看，点击切换</strong><p>在图标上停留约 0.4 秒。最多显示 6 个窗口，可横向浏览，移开后收起。</p></div></li>
-      </ol>
-      <p class="dock-preview-note">最小化、受保护或暂时无法捕获的窗口可能显示占位卡。实际效果取决于系统权限、Space 和目标 App；截图与录制期间会暂停预览。</p>
-    </div>
-    <figure class="dock-preview-settings" data-reveal>
-      <button class="image-button settings-enlarge" data-image-preview data-title="Dock 预览 · 开启方式与权限" aria-label="放大查看 Dock 预览设置和权限说明"><img src="./assets/dock-preview-settings.png" width="1600" height="1240" loading="lazy" alt="HaloDock 设置中的 Dock 预览分类，包含开启开关、权限状态和系统设置入口"><span class="enlarge-hint">查看设置大图 <span aria-hidden="true">↗</span></span></button>
-      <figcaption>实际设置界面示例 · 权限状态以你的 Mac 为准</figcaption>
-      <div class="dock-preview-identity"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8"/><path d="M10 9v5m0-8v.2"/></svg><p><strong>认准 HaloDock 的预览。</strong>v0.4.1 起，浮层标有“HaloDock 窗口预览”。关闭此开关后仍出现的预览，可能来自系统或其他工具。</p></div>
-    </figure>
-  </section>
-
   <section class="inside section" id="inside"><div class="shell inside-grid">
     <figure class="settings-scene" data-reveal><button class="image-button settings-enlarge" data-image-preview data-title="HaloDock 设置 · 分类导航" aria-label="放大查看 HaloDock 设置界面"><img src="./assets/settings.png" width="1600" height="1240" loading="lazy" alt="HaloDock 设置：左侧分类导航，右侧对应选项"><span class="enlarge-hint">查看大图 <span aria-hidden="true">↗</span></span></button><figcaption class="scene-caption">实际设置界面 · 点击查看清晰大图</figcaption></figure>
-    <div class="inside-copy" data-reveal><p class="launch-eyebrow">熟悉的 Mac 体验</p><h2>按你的习惯。<br><span>用自己的方式。</span></h2><p>跟随系统的外观，分门别类的设置。常用的留下，偶尔用的收好。</p><div class="detail-list"><div><span>01</span><p><strong>一眼找到设置</strong>左侧分类，右侧调整。快捷键、场景、权限各有位置。</p></div><div><span>02</span><p><strong>面板由你决定</strong>组件有小、中、大三种尺寸，工具可以排序、隐藏。</p></div><div><span>03</span><p><strong>陪你使用，也尊重边界</strong>截图与识字在本机处理，工作台资料也保存在本机。</p></div></div><a class="text-link" href="https://github.com/huangzhuangjia/halodock" target="_blank" rel="noopener">查看开源代码 <span aria-hidden="true">↗</span></a></div>
+    <div class="inside-copy" data-reveal><p class="launch-eyebrow">熟悉的 Mac 体验</p><h2>按你的习惯。<br><span>用自己的方式。</span></h2><p>跟随系统的外观，分门别类的设置。常用的留下，偶尔用的收好。</p><div class="detail-list"><div><span>01</span><p><strong>一眼找到设置</strong>左侧分类，右侧调整。快捷键、面板、权限各有位置。</p></div><div><span>02</span><p><strong>面板由你决定</strong>组件有小、中、大三种尺寸，工具可以排序、隐藏。</p></div><div><span>03</span><p><strong>陪你使用，也尊重边界</strong>截图与识字在本机处理，工作台资料也保存在本机。</p></div></div><a class="text-link" href="https://github.com/huangzhuangjia/halodock" target="_blank" rel="noopener">查看开源代码 <span aria-hidden="true">↗</span></a></div>
   </div></section>
-
-  <section class="section shell" id="workbench">
-    <div class="section-head"><p class="eyebrow">CAPTURE. COLLECT. REUSE.</p><h2>围绕一件事，<span class="serif">收在一起。</span></h2><p>截图行动卡直接加入工作台，先选目标工作台，文字、图片和文件按任务归拢。Markdown、PDF 等文档原地预览；常用回复存成片段，日期与时间在复制时自动填入。</p></div>
-    <figure class="workbench-showcase"><img src="./assets/workbench.png" width="1720" height="1240" loading="lazy" alt="HaloDock 工作台，演示内容包含任务清单、链接和截图"><figcaption>工作台实际界面 · 使用专用演示资料，内容仅保存在本机。</figcaption></figure>
-  </section>
-  <section class="section shell install" id="install"><div class="section-head"><p class="eyebrow">DRAG. DROP. DONE.</p><h2>拖过去，<span class="serif">就装好了。</span></h2><p>下载 DMG，把 HaloDock 拖到 Applications。<br>从“应用程序”打开，在菜单栏和它打个招呼。</p></div><figure class="installer-frame"><img src="./assets/installer.png" width="1360" height="1140" loading="lazy" alt="HaloDock 暖白 DMG 安装页，拖动应用到 Applications 文件夹"><figcaption>更新前请先退出旧版，再替换应用。</figcaption></figure></section>
 
   <section class="section shell faq" id="faq"><div class="section-head"><p class="eyebrow">A FEW GOOD QUESTIONS</p><h2>你可能还想知道。</h2></div><div class="faq-list">
     <details><summary>支持哪些 Mac？<span aria-hidden="true">+</span></summary><p>当前发布的安装包适用于 Apple Silicon（M 系列芯片）Mac，需要 macOS 13 或更新版本。Intel 安装包暂未提供。</p></details>
     <details><summary>剪贴板会保存什么？<span aria-hidden="true">+</span></summary><p>只记录 App 运行期间新复制的文字、图片和文件，最多 50 条，不上传服务器。主动加入工作台的内容和保存的文本片段会独立保存在本机，跨重启保留，可手动删除。普通记录保存在内存，默认 1 小时自动清理，退出后清空；可在设置调整。主动固定的最多 10 条（总计 16 MB）保存在本机，取消固定或删除时移除。支持单张 8 MB 以内的图片和 100 KB 以内的文本；带保密、临时、自动生成标记的内容会跳过，未带标记的敏感文本仍可能被记录。</p></details>
     <details><summary>为什么首次打开可能有安全提示？<span aria-hidden="true">+</span></summary><p>当前版本为 ad-hoc 签名，尚未经过 Apple Developer ID 签名与公证。如果系统阻止打开，请查看“系统设置 → 隐私与安全性”的对应提示。源码和每版 SHA-256 校验文件均在 GitHub 提供。</p></details>
     <details><summary>清空废纸篓需要什么权限？<span aria-hidden="true">+</span></summary><p>需要允许 HaloDock 通过“自动化”控制 Finder。首次确认清空时系统会请求授权；若已拒绝，App 提供“前往设置”入口。清空属于永久删除，操作前会再次确认。</p></details>
-    <details><summary>滚动截图和 GIF 如何使用？<span aria-hidden="true">+</span></summary><p>选区后在底部工具栏点击对应操作。滚动截图点击开始后，在选区内缓慢滚动，停稳后自动拼接；可暂停，完成后预览、保存或选择目标工作台。最多 120 段，动态内容可能无法匹配。GIF 有 3 秒倒计时，最长 15 秒，不录制声音。完成后可保存或加入工作台。</p></details>
+    <details><summary>滚动截图和 GIF 如何使用？<span aria-hidden="true">+</span></summary><p>选区后在底部工具栏点击对应操作。滚动截图点击开始后，在选区内缓慢滚动，连续采集拼接；可暂停，完成后预览、保存或选择目标工作台。最多 120 段，动态内容可能无法匹配。GIF 有 3 秒倒计时，最长 15 秒，不录制声音。完成后可保存或加入工作台。</p></details>
     <details><summary>Dock 窗口预览需要什么？<span aria-hidden="true">+</span></summary><p>在 App 设置的“Dock 预览”中主动开启，默认关闭。需要 macOS 14+、辅助功能与屏幕录制权限。悬停 App 或 Finder 图标后查看窗口，点击缩略图切换；无法捕获的窗口显示占位卡。预览仅在本机临时显示，实际效果取决于系统权限和窗口状态。<a href="#dock-preview">查看开启步骤与权限说明</a>。</p></details>
     <details><summary>如何更新和反馈问题？<span aria-hidden="true">+</span></summary><p>从 GitHub Releases 下载新版 DMG，退出旧版后替换安装。App 内“设置 → 软件更新”提供更新入口（v0.1.4 起）；v0.1.6 起支持 App 内显示进度并自动替换，完成后短暂重启。旧版首次升级到 v0.1.6 仍需手动安装。遇到问题可从 App“设置 → 问题反馈”整理草稿，或前往 <a href="https://github.com/huangzhuangjia/halodock/issues" target="_blank" rel="noopener">GitHub Issues</a>，附上 macOS、App 版本和复现步骤，截图前隐藏私人内容。</p></details>
   </div></section>
@@ -125,6 +102,6 @@
   <div class="image-preview-toolbar"><h2 id="image-preview-title">界面预览</h2><div><button type="button" id="preview-size" aria-pressed="false">原始尺寸</button><button type="button" id="preview-close" aria-label="关闭大图">关闭 <span aria-hidden="true">×</span></button></div></div>
   <div class="image-preview-body"><img id="preview-image" alt=""></div>
 </dialog>
-<script src="./landing.js?v=0.4.0-2" defer></script>
+<script src="./landing.js?v=0.4.1-story5" defer></script>
 </body>
 </html>

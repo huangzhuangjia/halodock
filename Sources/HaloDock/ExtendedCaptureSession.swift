@@ -21,6 +21,7 @@ final class ExtendedCaptureSession: ObservableObject {
     let mode: Mode
     let screen: NSScreen
     let selection: CGRect
+    private lazy var displaySource = DisplayCaptureSource(screen: screen)
     private let screenFrame: CGRect
     private let captureFrame: (() async throws -> CGImage)?
     private let countdownSeconds: Int
@@ -41,7 +42,7 @@ final class ExtendedCaptureSession: ObservableObject {
         let normalized = CaptureImage.resized(initial, maxWidth: 1600) ?? initial
         result = normalized; last = normalized
         thumbnail = NSImage(cgImage: CaptureImage.resized(normalized, maxWidth: 280) ?? normalized, size: CGSize(width: normalized.width, height: normalized.height))
-        message = mode == .scroll ? "点“开始采集”，回到选区内缓慢向下滚动；停稳后自动拼接，完成时点“完成”。" : "点击开始，3 秒后录制选区；最长 15 秒、最多 120 帧，不录制声音。"
+        message = mode == .scroll ? "点“开始采集”，回到选区内连续向下滚动；滚动中持续采集拼接，完成时点“完成”。" : "点击开始，3 秒后录制选区；最长 15 秒、最多 120 帧，不录制声音。"
     }
     func show() {
         let controller = NSHostingController(rootView: ExtendedCaptureControls(session: self))
@@ -66,7 +67,7 @@ final class ExtendedCaptureSession: ObservableObject {
         // On 13 the fallback cannot exclude windows; hide our control strip during capture.
         if #unavailable(macOS 14.0) { panel?.orderOut(nil); try await Task.sleep(for: .milliseconds(100)) }
         defer { if #unavailable(macOS 14.0) { panel?.orderFrontRegardless() } }
-        let image = try await DisplayCapture.image(screen: screen, excludingOwnWindows: true)
+        let image = try await displaySource.image()
         guard let pixels = ScreenshotGeometry.pixels(for: selection, viewSize: screen.frame.size, imageSize: CGSize(width: image.width, height: image.height)), let cropped = image.cropping(to: pixels), let normalized = CaptureImage.resized(cropped, maxWidth: 1600) else { throw WorkError("选区捕获失败") }
         return normalized
     }
@@ -85,27 +86,24 @@ final class ExtendedCaptureSession: ObservableObject {
         guard mode == .scroll, !busy, scrollPhase != .capturing, scrollPhase != .preview, count < 120 else { return }
         scrollTask?.cancel()
         let generation = UUID(); scrollGeneration = generation
-        scrollPhase = .capturing; message = "采集中 · 在橙色选区内缓慢向下滚动，停稳后自动拼接。"
+        scrollPhase = .capturing; message = "采集中 · 在橙色选区内连续向下滚动，滚动中持续采集拼接。"
         outline?.orderFrontRegardless()
         scrollTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            var candidate: CGImage?
             while !Task.isCancelled && self.scrollPhase == .capturing && generation == self.scrollGeneration {
                 do {
                     let next = try await self.frame()
                     try Task.checkCancellation()
                     guard self.scrollPhase == .capturing, generation == self.scrollGeneration else { return }
-                    if let candidate, ScrollStitcher.difference(candidate, next) < 1.5 {
-                        self.busy = true
-                        _ = try await self.merge(next, force: false, automatic: true, generation: generation)
-                        self.busy = false
-                    }
-                    candidate = next
+                    self.busy = true
+                    _ = try await self.merge(next, force: false, automatic: true, generation: generation)
+                    guard generation == self.scrollGeneration, !Task.isCancelled else { return }
+                    self.busy = false
                     if self.count >= 120 || self.result.height >= 24000 {
                         self.scrollPhase = .preview; self.outline?.orderOut(nil)
                         self.message = "已达到长图上限，请预览并保存。"; return
                     }
-                    try await Task.sleep(for: .milliseconds(250))
+                    try await Task.sleep(for: .milliseconds(80))
                 } catch is CancellationError { return }
                 catch {
                     guard generation == self.scrollGeneration else { return }
@@ -156,7 +154,7 @@ final class ExtendedCaptureSession: ObservableObject {
             }
             overlap = matched
             // Wait until enough new content accumulates; tiny motion should not consume the frame limit.
-            if automatic && next.height - overlap < max(12, next.height / 12) { return false }
+            if automatic && next.height - overlap < max(8, next.height / 40) { return false }
         }
         let previous = result
         let combined = try await Task.detached { try ScrollStitcher.append(next, to: previous, overlap: overlap) }.value
@@ -284,7 +282,7 @@ private struct ExtendedCaptureControls: View {
                             }.disabled(session.busy)
                         }
                     }
-                    Text("在原窗口缓慢向下滚动，无需逐屏点击。可随时暂停；最多 120 段、24000 像素高。").font(.caption2).foregroundStyle(.secondary)
+                    Text("在原窗口连续向下滚动，无需逐屏停顿或点击。可随时暂停；最多 120 段、24000 像素高。").font(.caption2).foregroundStyle(.secondary)
                 }
             } else if session.completed {
                 HStack { Button("保存 GIF") { session.save() }.buttonStyle(.borderedProminent); WorkbenchDestinationMenu { session.addToWorkbench(to: $0) } }

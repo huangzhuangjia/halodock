@@ -237,11 +237,12 @@ private struct SnippetEditor: View {
 struct WorkItemPreview: View {
     @ObservedObject var store: WorkbenchStore
     let item: WorkItem
+    @State private var source = false
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack { Text(item.title).font(.headline).lineLimit(1); Spacer(); Button("完成") { dismiss() }.keyboardShortcut(.cancelAction) }
-            if item.kind == .text { ScrollView { Text(item.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) } }
+            if item.kind == .text { MarkdownTextPreview(text: item.text, source: $source) }
             else if let url = store.assetURL(item), item.kind == .file {
                 DocumentFilePreview(url: url)
                 HStack {
@@ -261,6 +262,6 @@ struct WorkItemPreview: View {
                 }
             }
             HStack { Button("复制") { store.copy(item) }; if let message = store.message { Text(message).font(.caption).foregroundStyle(.secondary) } }
-        }.padding(20).frame(width: 640, height: 520).modifier(HaloDockTheme())
+        }.padding(20).frame(width: 640, height: 520).background(Color(nsColor: .windowBackgroundColor)).modifier(HaloDockTheme())
     }
 }
