@@ -67,7 +67,7 @@ final class ClosedLidState:ObservableObject {
         let battery=ClosedLidCommand.battery()
         guard !(battery.onBattery && (battery.percent ?? 100)<=20),ProcessInfo.processInfo.thermalState != .critical,ProcessInfo.processInfo.thermalState != .serious else {message="当前电量或温度不适合开启合盖模式";return}
         let uptime=ProcessInfo.processInfo.systemUptime
-        let next=ClosedLidSession(id:UUID(),ownerPID:ProcessInfo.processInfo.processIdentifier,ownerStarted:started,bootEpoch:Date().timeIntervalSince1970-uptime,previousDisabled:previous,deadlineUptime:minutes>0 ? uptime+Double(minutes*60):nil,endsAt:minutes>0 ? Date().addingTimeInterval(Double(minutes*60)):nil)
+        let next=ClosedLidSession(id:UUID(),ownerPID:ProcessInfo.processInfo.processIdentifier,ownerStarted:started,bootEpoch:Date().timeIntervalSince1970-uptime,previousDisabled:previous,deadlineUptime:minutes>0 ? uptime+Double(minutes*60):nil,endsAt:minutes>0 ? Date().addingTimeInterval(Double(minutes*60)):nil,bootSessionID:ClosedLidPolicy.readBootSessionID())
         do {
             try FileManager.default.createDirectory(at:ClosedLidPaths.directory,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
             try JSONEncoder().encode(next).write(to:ClosedLidPaths.session,options:.atomic)
@@ -140,7 +140,7 @@ final class ClosedLidState:ObservableObject {
     }
     private func ownerIsAlive(_ session:ClosedLidSession) -> Bool {
         let owner=NSRunningApplication(processIdentifier:session.ownerPID)
-        let sameBoot=abs(Date().timeIntervalSince1970-ProcessInfo.processInfo.systemUptime-session.bootEpoch)<30
+        let sameBoot=ClosedLidPolicy.isSameBoot(storedID:session.bootSessionID,currentID:ClosedLidPolicy.readBootSessionID())
         return sameBoot && owner?.bundleIdentifier=="com.halodock.app" && owner?.launchDate.map({abs($0.timeIntervalSince(session.ownerStarted))<2})==true
     }
     private func finish(reason:String) {

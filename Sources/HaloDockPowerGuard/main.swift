@@ -19,7 +19,7 @@ import ClosedLidSupport
             let owner=NSRunningApplication(processIdentifier:session.ownerPID)
             let alive=owner?.bundleIdentifier=="com.halodock.app" && owner?.launchDate.map({abs($0.timeIntervalSince(session.ownerStarted))<2})==true
             let uptime=ProcessInfo.processInfo.systemUptime
-            let sameBoot=abs(Date().timeIntervalSince1970-uptime-session.bootEpoch)<30
+            let sameBoot=ClosedLidPolicy.isSameBoot(storedID:session.bootSessionID,currentID:ClosedLidPolicy.readBootSessionID())
             let battery=ClosedLidCommand.battery()
             if let stop=ClosedLidPolicy.stopReason(ownerAlive:alive,sameBoot:sameBoot,uptime:uptime,deadline:session.deadlineUptime,onBattery:battery.onBattery,batteryPercent:battery.percent,thermal:ProcessInfo.processInfo.thermalState,stopRequested:FileManager.default.fileExists(atPath:ClosedLidPaths.stop(session.id).path)) {reason=stop;break}
             if ClosedLidCommand.readDisabled()==false {reason="系统已恢复睡眠";break}

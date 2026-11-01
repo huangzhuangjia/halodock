@@ -1,16 +1,18 @@
 import Foundation
 import IOKit.ps
+import Darwin
 
 public struct ClosedLidSession:Codable,Sendable {
     public let id:UUID
     public let ownerPID:Int32
     public let ownerStarted:Date
     public let bootEpoch:TimeInterval
+    public let bootSessionID:String?
     public let previousDisabled:Bool
     public let deadlineUptime:TimeInterval?
     public let endsAt:Date?
-    public init(id:UUID,ownerPID:Int32,ownerStarted:Date,bootEpoch:TimeInterval,previousDisabled:Bool,deadlineUptime:TimeInterval?,endsAt:Date?) {
-        self.id=id;self.ownerPID=ownerPID;self.ownerStarted=ownerStarted;self.bootEpoch=bootEpoch;self.previousDisabled=previousDisabled;self.deadlineUptime=deadlineUptime;self.endsAt=endsAt
+    public init(id:UUID,ownerPID:Int32,ownerStarted:Date,bootEpoch:TimeInterval,previousDisabled:Bool,deadlineUptime:TimeInterval?,endsAt:Date?,bootSessionID:String?=nil) {
+        self.id=id;self.ownerPID=ownerPID;self.ownerStarted=ownerStarted;self.bootEpoch=bootEpoch;self.previousDisabled=previousDisabled;self.deadlineUptime=deadlineUptime;self.endsAt=endsAt;self.bootSessionID=bootSessionID
     }
 }
 public struct ClosedLidResult:Codable,Sendable {
@@ -19,6 +21,20 @@ public struct ClosedLidResult:Codable,Sendable {
     public init(phase:String,reason:String) {self.phase=phase;self.reason=reason}
 }
 public enum ClosedLidPolicy {
+    public static func readBootSessionID() -> String? {
+        var size=0
+        guard sysctlbyname("kern.bootsessionuuid",nil,&size,nil,0)==0,size>1,size<=128 else {return nil}
+        var bytes=[CChar](repeating:0,count:size)
+        guard sysctlbyname("kern.bootsessionuuid",&bytes,&size,nil,0)==0 else {return nil}
+        let value=String(decoding:bytes.prefix(while:{$0 != 0}).map {UInt8(bitPattern:$0)},as:UTF8.self)
+        return UUID(uuidString:value)?.uuidString
+    }
+    public static func isSameBoot(storedID:String?,currentID:String?) -> Bool {
+        // Wall time minus systemUptime changes after sleep and clock adjustment.
+        // Legacy sessions / unavailable sysctl rely on PID + launchDate checks.
+        guard let storedID,let currentID else {return true}
+        return storedID==currentID
+    }
     public static func parseDisabled(_ text:String) -> Bool? {
         for line in text.split(separator:"\n") {
             let tokens=line.split(whereSeparator:{$0.isWhitespace})
@@ -37,7 +53,8 @@ public enum ClosedLidPolicy {
     }
     public static func stopReason(ownerAlive:Bool,sameBoot:Bool,uptime:TimeInterval,deadline:TimeInterval?,onBattery:Bool,batteryPercent:Int?,thermal:ProcessInfo.ThermalState,stopRequested:Bool) -> String? {
         if stopRequested {return "已手动关闭合盖模式"}
-        if !sameBoot || !ownerAlive {return "应用已退出，恢复原有睡眠设置"}
+        if !sameBoot {return "系统已重启，结束旧合盖会话"}
+        if !ownerAlive {return "应用已退出，恢复原有睡眠设置"}
         if let deadline,uptime>=deadline {return "合盖会话已到期"}
         if onBattery,let batteryPercent,batteryPercent<=20 {return "电量不足 20%，恢复睡眠"}
         if thermal == .serious || thermal == .critical {return "系统温度较高，恢复睡眠"}
